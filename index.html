@@ -1,0 +1,1862 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>March Madness Survivor Pool MVP</title>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --panel: #121933;
+      --panel-2: #1a2345;
+      --border: #2c396b;
+      --text: #eef2ff;
+      --muted: #a7b1d8;
+      --green: #1faa65;
+      --red: #df4c4c;
+      --gold: #f0b429;
+      --blue: #4c7dff;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: linear-gradient(180deg, #09101d, #0d1430);
+      color: var(--text);
+    }
+
+    .wrap {
+      max-width: 1500px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    h1, h2, h3, h4, p { margin-top: 0; }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 18px;
+    }
+
+    .topbar .title-block p {
+      color: var(--muted);
+      margin-bottom: 0;
+    }
+
+    .actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .live-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.12);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .live-indicator.on {
+      color: #bbf7d0;
+      border-color: rgba(31,170,101,0.55);
+      background: rgba(31,170,101,0.14);
+    }
+
+    .live-indicator.off {
+      color: #ffd2d2;
+      border-color: rgba(223,76,76,0.4);
+      background: rgba(223,76,76,0.12);
+    }
+
+    button {
+      background: var(--blue);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      padding: 10px 14px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    button.secondary {
+      background: #34416e;
+    }
+
+    button.warning {
+      background: #8a2f2f;
+    }
+
+    input, select {
+      background: #0f1733;
+      color: white;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 8px 10px;
+      width: 100%;
+    }
+
+    .panel {
+      background: rgba(18, 25, 51, 0.96);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 16px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.22);
+    }
+
+    .grid {
+      display: grid;
+      gap: 16px;
+    }
+
+    .setup-grid {
+      grid-template-columns: 380px 1fr;
+      align-items: start;
+      margin-bottom: 18px;
+    }
+
+    .player-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .player-row {
+      display: grid;
+      grid-template-columns: 90px 1fr;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .team-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .chip {
+      padding: 7px 10px;
+      border-radius: 999px;
+      background: #25315e;
+      color: white;
+      font-size: 13px;
+      border: 1px solid #41518d;
+    }
+
+    .chip.alive { background: rgba(31,170,101,0.18); border-color: rgba(31,170,101,0.55); }
+    .chip.dead { background: rgba(223,76,76,0.14); border-color: rgba(223,76,76,0.55); color: #ffd8d8; }
+    .chip.player-chip { cursor: pointer; }
+    .chip.player-chip.active { outline: 2px solid var(--gold); }
+
+    .leaderboard table, .assignments table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th, td {
+      padding: 10px 8px;
+      text-align: left;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      vertical-align: top;
+      font-size: 14px;
+    }
+
+    .muted { color: var(--muted); }
+    .small { font-size: 12px; }
+    .round-label {
+      display: inline-block;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: #26325f;
+      color: #d9e0ff;
+      margin-bottom: 10px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+    }
+
+    .bracket-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+      margin-top: 18px;
+    }
+
+    .region-col {
+      display: grid;
+      gap: 12px;
+      align-content: start;
+    }
+
+    .game-card {
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 12px;
+    }
+
+    .game-card.highlight {
+      box-shadow: 0 0 0 2px var(--gold) inset;
+      border-color: var(--gold);
+    }
+
+    .game-card.live-updated {
+      border-color: rgba(31,170,101,0.8);
+      box-shadow: 0 0 0 1px rgba(31,170,101,0.55) inset, 0 0 22px rgba(31,170,101,0.35);
+      animation: livePulse 1.8s ease-out;
+    }
+
+    @keyframes livePulse {
+      0% {
+        box-shadow: 0 0 0 1px rgba(31,170,101,0.85) inset, 0 0 30px rgba(31,170,101,0.5);
+      }
+      100% {
+        box-shadow: 0 0 0 1px rgba(31,170,101,0.55) inset, 0 0 22px rgba(31,170,101,0.35);
+      }
+    }
+
+    .matchup-line {
+      display: grid;
+      grid-template-columns: 1fr 90px 70px;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .team-name {
+      font-weight: 700;
+    }
+
+    .team-meta {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .team-line {
+      padding: 8px;
+      border-radius: 12px;
+      border: 1px solid transparent;
+    }
+
+    .team-line.winner { background: rgba(76,125,255,0.12); border-color: rgba(76,125,255,0.4); }
+
+    .ownership {
+      margin-top: 10px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .ownership .owner {
+      font-size: 12px;
+      padding: 5px 8px;
+      border-radius: 999px;
+      background: #32406f;
+    }
+
+    .ownership .owner.active-owner { background: var(--gold); color: #232323; font-weight: 700; }
+
+    .finals-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+      margin-top: 18px;
+    }
+
+    .status-banner {
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: rgba(240,180,41,0.14);
+      border: 1px solid rgba(240,180,41,0.4);
+      color: #ffe3a2;
+      margin-bottom: 12px;
+      font-size: 14px;
+    }
+
+    .live-bracket-panel {
+      margin-top: 18px;
+    }
+
+    .live-bracket-board {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 260px minmax(0, 1fr);
+      gap: 18px;
+      margin-top: 16px;
+      padding: 18px;
+      border-radius: 20px;
+      background:
+        radial-gradient(circle at top, rgba(76,125,255,0.12), transparent 28%),
+        linear-gradient(180deg, rgba(7,12,26,0.96), rgba(10,15,33,0.98));
+      border: 1px solid rgba(76,125,255,0.2);
+      overflow-x: auto;
+    }
+
+    .live-bracket-side {
+      display: grid;
+      gap: 24px;
+      align-content: start;
+    }
+
+    .region-bracket {
+      display: grid;
+      gap: 12px;
+    }
+
+    .region-bracket-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      font-size: 12px;
+      color: #d7e3ff;
+    }
+
+    .region-bracket-header span:last-child {
+      color: var(--muted);
+      letter-spacing: normal;
+      text-transform: none;
+    }
+
+    .region-bracket-rounds {
+      display: grid;
+      grid-auto-flow: column;
+      grid-auto-columns: minmax(138px, 1fr);
+      gap: 18px;
+      align-items: start;
+    }
+
+    .region-bracket.right .region-bracket-rounds {
+      direction: rtl;
+    }
+
+    .region-bracket.right .region-round,
+    .region-bracket.right .bracket-slot {
+      direction: ltr;
+    }
+
+    .region-round {
+      display: grid;
+      align-content: start;
+      gap: 8px;
+      min-width: 138px;
+    }
+
+    .region-round-title {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #9fb0e8;
+      min-height: 28px;
+    }
+
+    .region-round-stack {
+      display: grid;
+      gap: var(--slot-gap, 18px);
+      padding-top: var(--slot-offset, 0px);
+    }
+
+    .bracket-slot {
+      position: relative;
+      background: #f8fbff;
+      color: #15213f;
+      border: 1px solid rgba(255,255,255,0.88);
+      border-radius: 6px;
+      padding: 7px 8px;
+      min-height: 62px;
+      box-shadow: 0 8px 18px rgba(0,0,0,0.18);
+    }
+
+    .bracket-slot.updated {
+      border-color: rgba(31,170,101,0.8);
+      box-shadow: 0 0 0 2px rgba(31,170,101,0.35) inset, 0 8px 18px rgba(0,0,0,0.18);
+    }
+
+    .bracket-slot.connect-next::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      right: -20px;
+      width: 20px;
+      border-top: 3px solid #2f8cff;
+    }
+
+    .bracket-slot.connect-next::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      right: -20px;
+      height: var(--connector-height, 0px);
+      width: 20px;
+      border-right: 3px solid #2f8cff;
+      transform: translateY(-50%);
+    }
+
+    .region-bracket.right .bracket-slot.connect-next::after {
+      right: auto;
+      left: -20px;
+    }
+
+    .region-bracket.right .bracket-slot.connect-next::before {
+      right: auto;
+      left: -20px;
+      border-right: none;
+      border-left: 3px solid #2f8cff;
+    }
+
+    .bracket-slot-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 5px;
+      font-size: 9px;
+      color: #5d6993;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .slot-team {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: center;
+      padding: 3px 0;
+      border-top: 1px solid rgba(21,33,63,0.08);
+      font-size: 11px;
+    }
+
+    .slot-team:first-of-type {
+      border-top: none;
+      padding-top: 0;
+    }
+
+    .slot-team.winner {
+      color: #10214a;
+      font-weight: 700;
+    }
+
+    .slot-team-main {
+      display: flex;
+      gap: 5px;
+      align-items: center;
+      min-width: 0;
+    }
+
+    .slot-team-seed {
+      min-width: 16px;
+      font-size: 10px;
+      font-weight: 700;
+      color: #4d5c86;
+    }
+
+    .slot-team-name {
+      line-height: 1.25;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .slot-team-score {
+      min-width: 22px;
+      text-align: right;
+      font-weight: 700;
+      color: #10214a;
+    }
+
+    .slot-meta {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-top: 6px;
+    }
+
+    .slot-pill {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 6px;
+      border-radius: 999px;
+      background: rgba(47,140,255,0.08);
+      border: 1px solid rgba(47,140,255,0.22);
+      font-size: 9px;
+      color: #284a8e;
+    }
+
+    .live-bracket-center {
+      display: grid;
+      align-content: center;
+      gap: 14px;
+    }
+
+    .center-brand {
+      text-align: center;
+      padding: 18px 14px;
+      border-radius: 18px;
+      background: rgba(12, 19, 40, 0.95);
+      border: 1px solid rgba(76,125,255,0.28);
+    }
+
+    .center-brand h3 {
+      margin-bottom: 6px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-size: 18px;
+    }
+
+    .finals-track {
+      display: grid;
+      gap: 12px;
+    }
+
+    .finals-stage {
+      display: grid;
+      gap: 10px;
+    }
+
+    .finals-stage h4 {
+      margin-bottom: 0;
+      text-align: center;
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #9fb0e8;
+    }
+
+    @media (max-width: 1100px) {
+      .setup-grid, .bracket-grid, .finals-grid, .live-bracket-board {
+        grid-template-columns: 1fr;
+      }
+
+      .region-bracket-rounds {
+        grid-auto-flow: row;
+        grid-auto-columns: unset;
+      }
+
+      .region-bracket.right .region-bracket-rounds {
+        direction: ltr;
+      }
+
+      .bracket-slot.connect-next::after,
+      .region-bracket.right .bracket-slot.connect-next::after {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <div class="title-block">
+        <h1>March Madness Survivor Pool</h1>
+        <p>32 teams, 8 entrants, 4 random teams each. Spread survivor until Final Four, then straight winner advances.</p>
+      </div>
+      <div class="actions">
+        <button id="randomizeBtn">Randomize Teams</button>
+        <button id="sampleBtn" class="secondary">Load Sample Bracket</button>
+        <button id="resetScoresBtn" class="secondary">Reset Scores</button>
+        <button id="enableLiveBtn" class="secondary">Enable Live Scores</button>
+        <button id="disableLiveBtn" class="secondary">Disable Live Scores</button>
+        <button id="manualSyncBtn" class="secondary">Sync Now</button>
+        <span id="liveIndicator" class="live-indicator off">Live Scores: OFF</span>
+        <button id="resetAllBtn" class="warning">Reset Everything</button>
+      </div>
+    </div>
+
+    <div class="grid setup-grid">
+      <div class="panel">
+        <h3>Entrants</h3>
+        <div class="player-list" id="playerInputs"></div>
+        <p class="small muted" style="margin-top:12px;">Tip: click a player chip anywhere on the page to highlight their teams.</p>
+      </div>
+
+      <div class="grid" style="gap:16px;">
+        <div class="panel assignments">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+            <div>
+              <h3 style="margin-bottom:6px;">Assignments</h3>
+              <p class="muted small">Each entrant gets 4 teams from the Round of 32 field.</p>
+            </div>
+            <div>
+              <span class="chip">Active Highlight: <strong id="activePlayerLabel">None</strong></span>
+            </div>
+          </div>
+          <div id="assignmentsTable"></div>
+        </div>
+
+        <div class="panel leaderboard">
+          <h3>Leaderboard</h3>
+          <div id="leaderboardTable"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="status-banner">
+        <strong>Rules:</strong> Through the Elite 8, a player keeps a team only if that team covers the spread in that round. In the Final Four and Championship, the spread is ignored and only the straight-up winner advances.
+      </div>
+
+      <h2 style="margin-bottom:12px;">Round of 32 Regions</h2>
+      <div class="bracket-grid" id="regionsGrid"></div>
+
+      <h2 style="margin:22px 0 12px;">Final Rounds</h2>
+      <div class="finals-grid" id="finalsGrid"></div>
+    </div>
+
+    <div class="panel live-bracket-panel">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+        <div>
+          <h2 style="margin-bottom:6px;">Live Tournament Bracket View</h2>
+          <p class="muted small" style="margin-bottom:0;">Read-only view of the current ESPN tournament slate with live scores.</p>
+        </div>
+        <span id="liveBracketSummary" class="chip">Waiting for sync</span>
+      </div>
+      <div id="liveBracketGrid" class="live-bracket-board"></div>
+    </div>
+  </div>
+
+  <script>
+    const LIVE_SCOREBOARD_URL = 'https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard?groups=100';
+    const ODDS_API_URL = 'https://api.the-odds-api.com/v4/sports/basketball_ncaab/odds';
+    const ODDS_API_KEY = 'REPLACE_ME';
+    const LIVE_REFRESH_MS = 30000;
+    const LIVE_BRACKET_REGION_ORDER = {
+      left: ['East Region', 'South Region'],
+      right: ['West Region', 'Midwest Region']
+    };
+    const LIVE_BRACKET_SEED_MATCHUPS = [
+      [1, 16],
+      [8, 9],
+      [5, 12],
+      [4, 13],
+      [6, 11],
+      [3, 14],
+      [7, 10],
+      [2, 15]
+    ];
+    const LIVE_BRACKET_ROUND_LABELS = ['Round of 64', 'Round of 32', 'Sweet 16', 'Elite 8'];
+    const TEAM_NAME_MAP = {
+      'Connecticut Huskies': 'UConn',
+      'North Carolina Tar Heels': 'North Carolina',
+      'Florida Atlantic Owls': 'Florida Atlantic'
+    };
+    const MASCOT_SUFFIXES = [
+      'Red Raiders', 'Blue Devils', 'Tar Heels', 'Crimson Tide', 'Red Storm',
+      'Boilermakers', 'Cyclones', 'Wildcats', 'Tigers', 'Owls', 'Broncos',
+      'Raiders', 'Aggies', 'Gators', 'Hawkeyes', 'Volunteers', 'Hurricanes',
+      'Knights', 'Panthers', 'Pride', 'Bruins', 'Lancers', 'Sharks', 'Royals',
+      'Paladins', 'Huskies', 'Falcons', 'Bulldogs', 'Cougars', 'Gaels',
+      'Trojans', 'Spartans', 'Pirates', 'Jayhawks', 'Bears', 'Eagles', 'Titans', 'RedHawks'
+    ];
+
+    const defaultPlayerNames = [
+      'Player 1','Player 2','Player 3','Player 4',
+      'Player 5','Player 6','Player 7','Player 8'
+    ];
+
+    const initialMatchups = [
+      { region: 'East', teamA: { seed: 5, name: "St. John's" }, teamB: { seed: 12, name: 'Northern Iowa' }, spread: -5.5 },
+      { region: 'East', teamA: { seed: 4, name: 'Kansas' }, teamB: { seed: 13, name: 'California Baptist' }, spread: -8.5 },
+      { region: 'East', teamA: { seed: 7, name: 'UCLA' }, teamB: { seed: 10, name: 'UCF' }, spread: -2.5 },
+      { region: 'East', teamA: { seed: 2, name: 'UConn' }, teamB: { seed: 15, name: 'Furman' }, spread: -12.5 },
+
+      { region: 'West', teamA: { seed: 1, name: 'Arizona' }, teamB: { seed: 16, name: 'Long Island University' }, spread: -18.5 },
+      { region: 'West', teamA: { seed: 8, name: 'Villanova' }, teamB: { seed: 9, name: 'Utah State' }, spread: -1.5 },
+      { region: 'West', teamA: { seed: 7, name: 'Miami' }, teamB: { seed: 10, name: 'Missouri' }, spread: -1.5 },
+      { region: 'West', teamA: { seed: 2, name: 'Purdue' }, teamB: { seed: 15, name: 'Queens University' }, spread: -14.5 },
+
+      { region: 'South', teamA: { seed: 1, name: 'Florida' }, teamB: { seed: 16, name: 'Prairie View A&M' }, spread: -20.5 },
+      { region: 'South', teamA: { seed: 8, name: 'Clemson' }, teamB: { seed: 9, name: 'Iowa' }, spread: -1.5 },
+      { region: 'South', teamA: { seed: 5, name: 'Texas Tech' }, teamB: { seed: 12, name: 'Akron' }, spread: -4.5 },
+      { region: 'South', teamA: { seed: 4, name: 'Alabama' }, teamB: { seed: 13, name: 'Hofstra' }, spread: -9.5 },
+
+      { region: 'Midwest', teamA: { seed: 6, name: 'Tennessee' }, teamB: { seed: 11, name: 'Miami (OH)' }, spread: -4.5 },
+      { region: 'Midwest', teamA: { seed: 3, name: 'Virginia' }, teamB: { seed: 14, name: 'Wright State' }, spread: -10.5 },
+      { region: 'Midwest', teamA: { seed: 7, name: 'Kentucky' }, teamB: { seed: 10, name: 'Santa Clara' }, spread: -3.5 },
+      { region: 'Midwest', teamA: { seed: 2, name: 'Iowa State' }, teamB: { seed: 15, name: 'Tennessee State' }, spread: -13.5 }
+    ];
+
+    const regions = ['East', 'West', 'South', 'Midwest'];
+    const APP_TEAM_ALIASES = {
+      UConn: 'UConn',
+      Connecticut: 'UConn',
+      'Connecticut Huskies': 'UConn',
+      UNC: 'North Carolina',
+      'North Carolina': 'North Carolina',
+      'North Carolina Tar Heels': 'North Carolina',
+      FAU: 'Florida Atlantic',
+      'Florida Atlantic': 'Florida Atlantic',
+      'Florida Atlantic Owls': 'Florida Atlantic'
+    };
+
+    const state = {
+      players: defaultPlayerNames.map((name, i) => ({ id: i + 1, name, teamNames: [] })),
+      activePlayerId: null,
+      liveMode: false,
+      liveSyncInFlight: false,
+      liveUpdateTimer: null,
+      liveBracketGames: [],
+      liveBracketLastUpdated: '',
+      recentUpdatedGameIds: new Set(),
+      recentUpdateClearTimer: null,
+      rounds: {
+        round32: [],
+        sweet16: [],
+        elite8: [],
+        final4: [],
+        championship: []
+      }
+    };
+    let liveInterval = null;
+
+    function createInitialGames() {
+      return initialMatchups.map((matchup, index) => {
+        const regionIndex = Math.floor(index / 4);
+        const gameNumber = (index % 4) + 1;
+        return makeGame(
+          `r32_${regionIndex}_${gameNumber}`,
+          'round32',
+          matchup.region,
+          matchup.teamA,
+          matchup.teamB,
+          matchup.spread
+        );
+      });
+    }
+
+    function makeGame(id, round, region, teamA, teamB, spread = 0) {
+      return {
+        id,
+        round,
+        region,
+        teamA: teamA ? { ...teamA } : null,
+        teamB: teamB ? { ...teamB } : null,
+        spread,
+        scoreA: '',
+        scoreB: '',
+        winner: null,
+        coverTeam: null
+      };
+    }
+
+    function buildLaterRounds() {
+      state.rounds.sweet16 = [];
+      state.rounds.elite8 = [];
+      state.rounds.final4 = [];
+      state.rounds.championship = [];
+
+      for (let r = 0; r < 4; r++) {
+        state.rounds.sweet16.push(
+          makeGame(`s16_${r}_1`, 'sweet16', regions[r], null, null, -3.5),
+          makeGame(`s16_${r}_2`, 'sweet16', regions[r], null, null, -3.5)
+        );
+        state.rounds.elite8.push(
+          makeGame(`e8_${r}_1`, 'elite8', regions[r], null, null, -2.5)
+        );
+      }
+
+      state.rounds.final4.push(
+        makeGame('f4_1', 'final4', 'Final Four', null, null, 0),
+        makeGame('f4_2', 'final4', 'Final Four', null, null, 0)
+      );
+
+      state.rounds.championship.push(
+        makeGame('champ_1', 'championship', 'Championship', null, null, 0)
+      );
+    }
+
+    function resetAll() {
+      state.players = defaultPlayerNames.map((name, i) => ({ id: i + 1, name, teamNames: [] }));
+      state.activePlayerId = null;
+      state.liveBracketGames = [];
+      state.liveBracketLastUpdated = '';
+      state.rounds.round32 = createInitialGames();
+      buildLaterRounds();
+      renderAll();
+    }
+
+    function resetScores() {
+      ['round32','sweet16','elite8','final4','championship'].forEach(round => {
+        state.rounds[round].forEach(game => {
+          game.scoreA = '';
+          game.scoreB = '';
+          game.winner = null;
+          game.coverTeam = null;
+        });
+      });
+      clearRecentUpdates();
+      propagateBracket();
+      renderAll();
+    }
+
+    function getAllGames() {
+      return [
+        ...state.rounds.round32,
+        ...state.rounds.sweet16,
+        ...state.rounds.elite8,
+        ...state.rounds.final4,
+        ...state.rounds.championship
+      ];
+    }
+
+    function canonicalizeTeamName(name) {
+      return String(name || '')
+        .toLowerCase()
+        .replace(/&/g, 'and')
+        .replace(/[^a-z0-9]+/g, '');
+    }
+
+    function getKnownTeamNames() {
+      return Array.from(new Set([
+        ...initialMatchups.flatMap(matchup => [matchup.teamA?.name, matchup.teamB?.name]).filter(Boolean),
+        ...getAllGames().flatMap(game => [game.teamA?.name, game.teamB?.name]).filter(Boolean)
+      ]));
+    }
+
+    function stripMascotSuffix(name) {
+      let result = String(name || '').trim();
+      MASCOT_SUFFIXES.forEach(suffix => {
+        if (result.endsWith(` ${suffix}`)) {
+          result = result.slice(0, -1 * (suffix.length + 1)).trim();
+        }
+      });
+      return result;
+    }
+
+    function normalizeTeamName(name) {
+      const rawName = String(name || '').trim();
+      if (!rawName) return '';
+
+      if (TEAM_NAME_MAP[rawName]) {
+        return TEAM_NAME_MAP[rawName];
+      }
+
+      if (APP_TEAM_ALIASES[rawName]) {
+        return APP_TEAM_ALIASES[rawName];
+      }
+
+      const knownTeams = getKnownTeamNames();
+      if (knownTeams.includes(rawName)) return rawName;
+
+      const simplifiedName = stripMascotSuffix(rawName);
+      if (knownTeams.includes(simplifiedName)) return simplifiedName;
+      if (APP_TEAM_ALIASES[simplifiedName]) return APP_TEAM_ALIASES[simplifiedName];
+
+      const normalizedRaw = canonicalizeTeamName(simplifiedName);
+      const exactKnown = knownTeams.find(team => canonicalizeTeamName(team) === normalizedRaw);
+      if (exactKnown) return exactKnown;
+
+      const partialKnown = [...knownTeams]
+        .sort((left, right) => canonicalizeTeamName(right).length - canonicalizeTeamName(left).length)
+        .find(team => {
+          const normalizedKnown = canonicalizeTeamName(team);
+          return normalizedRaw.includes(normalizedKnown) || normalizedKnown.includes(normalizedRaw);
+        });
+      if (partialKnown) return partialKnown;
+
+      return simplifiedName;
+    }
+
+    function findGameByTeams(teamA, teamB) {
+      const normalizedA = normalizeTeamName(teamA);
+      const normalizedB = normalizeTeamName(teamB);
+      if (!normalizedA || !normalizedB) return null;
+
+      return getAllGames().find(game => {
+        const gameTeamA = normalizeTeamName(game.teamA?.name);
+        const gameTeamB = normalizeTeamName(game.teamB?.name);
+        return (gameTeamA === normalizedA && gameTeamB === normalizedB) || (gameTeamA === normalizedB && gameTeamB === normalizedA);
+      }) || null;
+    }
+
+    function markGamesUpdated(gameIds) {
+      if (!gameIds.length) return;
+
+      gameIds.forEach(gameId => state.recentUpdatedGameIds.add(gameId));
+      if (state.recentUpdateClearTimer) {
+        clearTimeout(state.recentUpdateClearTimer);
+      }
+      state.recentUpdateClearTimer = setTimeout(() => {
+        clearRecentUpdates();
+        renderAll();
+      }, 7000);
+    }
+
+    function clearRecentUpdates() {
+      state.recentUpdatedGameIds.clear();
+      if (state.recentUpdateClearTimer) {
+        clearTimeout(state.recentUpdateClearTimer);
+        state.recentUpdateClearTimer = null;
+      }
+    }
+
+    function updateGameFromEspn(teamA, teamB, scoreA, scoreB) {
+      const normalizedA = normalizeTeamName(teamA);
+      const normalizedB = normalizeTeamName(teamB);
+      const game = findGameByTeams(normalizedA, normalizedB);
+      if (!game) {
+        console.log('No match for:', normalizedA, normalizedB);
+        return null;
+      }
+
+      console.log('Matched game:', normalizedA, normalizedB);
+
+      const normalizedGameA = normalizeTeamName(game.teamA?.name);
+      const nextScoreA = String(scoreA ?? '');
+      const nextScoreB = String(scoreB ?? '');
+
+      if (normalizedA === normalizedGameA) {
+        game.scoreA = nextScoreA;
+        game.scoreB = nextScoreB;
+      } else {
+        game.scoreA = nextScoreB;
+        game.scoreB = nextScoreA;
+      }
+
+      propagateBracket();
+      return game.id;
+    }
+
+    function updateSpread(teamA, teamB, spread) {
+      if (spread === null || spread === undefined || Number.isNaN(Number(spread))) return false;
+
+      const game = findGameByTeams(teamA, teamB);
+      if (!game) return false;
+
+      const normalizedA = normalizeTeamName(teamA);
+      const normalizedGameA = normalizeTeamName(game.teamA?.name);
+      const nextSpread = normalizedA === normalizedGameA ? Number(spread) : Number(spread) * -1;
+
+      if (game.spread === nextSpread) return false;
+      game.spread = nextSpread;
+      propagateBracket();
+      return game.id;
+    }
+
+    function createMatchupKey(teamA, teamB) {
+      return [normalizeTeamName(teamA), normalizeTeamName(teamB)]
+        .filter(Boolean)
+        .sort()
+        .join('__');
+    }
+
+    function parseLiveBracketHeadline(headline) {
+      const parts = String(headline || '')
+        .split(' - ')
+        .map(part => part.trim())
+        .filter(Boolean);
+
+      return {
+        region: parts[1] || 'Tournament',
+        round: parts[2] || 'Current Round'
+      };
+    }
+
+    function buildLiveBracketGames(events) {
+      return events.map(event => {
+        const competition = event?.competitions?.[0];
+        const competitors = Array.isArray(competition?.competitors) ? competition.competitors : [];
+        if (competitors.length < 2) return null;
+
+        const competitorA = competitors[0];
+        const competitorB = competitors[1];
+        const labels = parseLiveBracketHeadline(competition?.notes?.[0]?.headline || competition?.note?.headline);
+        const scoreA = competitorA?.score ?? '';
+        const scoreB = competitorB?.score ?? '';
+        const numericA = Number(scoreA);
+        const numericB = Number(scoreB);
+        const hasScores = scoreA !== '' && scoreB !== '' && !Number.isNaN(numericA) && !Number.isNaN(numericB);
+
+        return {
+          id: event?.id || createMatchupKey(competitorA?.team?.displayName, competitorB?.team?.displayName),
+          matchupKey: createMatchupKey(competitorA?.team?.displayName, competitorB?.team?.displayName),
+          eventDate: event?.date || '',
+          region: labels.region,
+          round: labels.round,
+          status: competition?.status?.type?.description || 'Scheduled',
+          detail: competition?.status?.type?.detail || '',
+          seedA: competitorA?.curatedRank?.current ?? '',
+          seedB: competitorB?.curatedRank?.current ?? '',
+          teamA: normalizeTeamName(competitorA?.team?.displayName || competitorA?.team?.shortDisplayName || competitorA?.team?.name),
+          teamB: normalizeTeamName(competitorB?.team?.displayName || competitorB?.team?.shortDisplayName || competitorB?.team?.name),
+          rawTeamA: competitorA?.team?.displayName || competitorA?.team?.shortDisplayName || competitorA?.team?.name || 'TBD',
+          rawTeamB: competitorB?.team?.displayName || competitorB?.team?.shortDisplayName || competitorB?.team?.name || 'TBD',
+          scoreA: scoreA === '' ? '' : String(scoreA),
+          scoreB: scoreB === '' ? '' : String(scoreB),
+          winner: hasScores ? (numericA > numericB ? 'A' : numericB > numericA ? 'B' : null) : null,
+          spread: null,
+          matchedPoolGameId: findGameByTeams(competitorA?.team?.displayName, competitorB?.team?.displayName)?.id || null
+        };
+      }).filter(Boolean);
+    }
+
+    function buildLiveSpreadMap(events) {
+      const spreadMap = {};
+
+      events.forEach(event => {
+        const bookmakers = Array.isArray(event?.bookmakers) ? event.bookmakers : [];
+        const spreadMarket = bookmakers
+          .flatMap(bookmaker => bookmaker?.markets || [])
+          .find(market => market?.key === 'spreads' && Array.isArray(market?.outcomes) && market.outcomes.length >= 2);
+
+        if (!spreadMarket) return;
+
+        const awayTeam = event?.away_team;
+        const homeTeam = event?.home_team;
+        const awayOutcome = spreadMarket.outcomes.find(outcome => normalizeTeamName(outcome?.name) === normalizeTeamName(awayTeam));
+        if (!awayTeam || !homeTeam || awayOutcome?.point === undefined) return;
+
+        spreadMap[createMatchupKey(awayTeam, homeTeam)] = {
+          teamA: normalizeTeamName(awayTeam),
+          point: Number(awayOutcome.point)
+        };
+      });
+
+      return spreadMap;
+    }
+
+    function mergeLiveBracketData(games, spreadMap) {
+      return games.map(game => {
+        const spreadInfo = spreadMap[game.matchupKey];
+        if (!spreadInfo) return game;
+
+        const spread = spreadInfo.teamA === game.teamA ? spreadInfo.point : spreadInfo.point * -1;
+        return {
+          ...game,
+          spread
+        };
+      });
+    }
+
+    function sortLiveGamesForBracket(games) {
+      return [...games].sort((a, b) => {
+        const timeDiff = new Date(a.eventDate || 0) - new Date(b.eventDate || 0);
+        if (timeDiff !== 0) return timeDiff;
+        return String(a.id).localeCompare(String(b.id));
+      });
+    }
+
+    function getAdvancingTeam(entry) {
+      if (!entry) return 'TBD';
+      if (entry.winner === 'A') return entry.rawTeamA;
+      if (entry.winner === 'B') return entry.rawTeamB;
+      return 'TBD';
+    }
+
+    function getAdvancingSeed(entry) {
+      if (!entry) return '';
+      if (entry.winner === 'A') return entry.seedA || '';
+      if (entry.winner === 'B') return entry.seedB || '';
+      return '';
+    }
+
+    function createPlaceholderEntry(id, detail, teamA = 'TBD', teamB = 'TBD', seedA = '', seedB = '') {
+      return {
+        id,
+        kind: 'placeholder',
+        rawTeamA: teamA,
+        rawTeamB: teamB,
+        seedA,
+        seedB,
+        scoreA: '',
+        scoreB: '',
+        status: 'Pending',
+        detail,
+        spread: null,
+        winner: null,
+        matchedPoolGameId: null
+      };
+    }
+
+    function getSeedPairKey(seedA, seedB) {
+      const numericSeeds = [Number(seedA), Number(seedB)].filter(seed => !Number.isNaN(seed));
+      if (numericSeeds.length !== 2) return '';
+      return numericSeeds.sort((a, b) => a - b).join('-');
+    }
+
+    function buildRoundOf64Entries(regionName, games) {
+      const slots = LIVE_BRACKET_SEED_MATCHUPS.map((seedPair, index) => createPlaceholderEntry(
+        `${regionName}_r64_${index}`,
+        'Awaiting matchup',
+        'TBD',
+        'TBD',
+        seedPair[0],
+        seedPair[1]
+      ));
+      const slotIndexBySeedPair = Object.fromEntries(LIVE_BRACKET_SEED_MATCHUPS.map((seedPair, index) => [seedPair.join('-'), index]));
+      const openIndexes = slots.map((_, index) => index);
+
+      sortLiveGamesForBracket(games).forEach(game => {
+        const seedKey = getSeedPairKey(game.seedA, game.seedB);
+        let slotIndex = seedKey ? slotIndexBySeedPair[seedKey] : undefined;
+
+        if (slotIndex === undefined || slots[slotIndex].kind === 'game') {
+          slotIndex = openIndexes.find(index => slots[index].kind !== 'game');
+        }
+        if (slotIndex === undefined) return;
+
+        slots[slotIndex] = {
+          ...game,
+          kind: 'game',
+          slotIndex
+        };
+      });
+
+      return slots;
+    }
+
+    function buildLiveRegionBracket(regionName, games) {
+      const rounds = [];
+      let currentEntries = buildRoundOf64Entries(regionName, games);
+
+      rounds.push({ label: LIVE_BRACKET_ROUND_LABELS[0], entries: currentEntries, depth: 0 });
+
+      let depth = 0;
+      while (depth < LIVE_BRACKET_ROUND_LABELS.length - 1) {
+        const nextEntries = [];
+        for (let i = 0; i < currentEntries.length; i += 2) {
+          const top = currentEntries[i];
+          const bottom = currentEntries[i + 1];
+          nextEntries.push(createPlaceholderEntry(
+            `${regionName}_${depth}_${i}`,
+            'Awaiting winners',
+            getAdvancingTeam(top),
+            bottom ? getAdvancingTeam(bottom) : 'TBD',
+            getAdvancingSeed(top),
+            bottom ? getAdvancingSeed(bottom) : ''
+          ));
+        }
+        depth += 1;
+        rounds.push({ label: LIVE_BRACKET_ROUND_LABELS[depth] || `Round ${depth + 1}`, entries: nextEntries, depth });
+        currentEntries = nextEntries;
+      }
+
+      return {
+        regionName,
+        rounds,
+        champion: currentEntries[0] || null
+      };
+    }
+
+    function buildLiveBracketRegions(games) {
+      const grouped = games.reduce((acc, game) => {
+        if (!acc[game.region]) acc[game.region] = [];
+        acc[game.region].push(game);
+        return acc;
+      }, {});
+
+      const allRegions = new Set([
+        ...LIVE_BRACKET_REGION_ORDER.left,
+        ...LIVE_BRACKET_REGION_ORDER.right,
+        ...Object.keys(grouped)
+      ]);
+
+      return Array.from(allRegions).map(regionName => buildLiveRegionBracket(regionName, grouped[regionName] || []));
+    }
+
+    function findLiveRegion(brackets, regionName) {
+      return brackets.find(bracket => bracket.regionName === regionName) || buildLiveRegionBracket(regionName, []);
+    }
+
+    async function fetchEspnScores() {
+      try {
+        const response = await fetch(LIVE_SCOREBOARD_URL);
+        if (!response.ok) {
+          throw new Error(`Scoreboard request failed: ${response.status}`);
+        }
+
+        const data = await response.json();
+        const events = Array.isArray(data?.events) ? data.events : [];
+        state.liveBracketGames = buildLiveBracketGames(events);
+
+        return events.map(event => {
+          const competition = event?.competitions?.[0];
+          const competitors = Array.isArray(competition?.competitors) ? competition.competitors : [];
+          if (competitors.length < 2) return null;
+
+          const homeCompetitor = competitors.find(competitor => competitor?.homeAway === 'home') || competitors[0];
+          const awayCompetitor = competitors.find(competitor => competitor?.homeAway === 'away') || competitors[1];
+          const statusState = competition?.status?.type?.state;
+          const gameStatus = competition?.status?.type?.completed
+            ? 'final'
+            : statusState === 'in'
+              ? 'in-progress'
+              : 'scheduled';
+
+          return {
+            homeTeamName: homeCompetitor?.team?.displayName || homeCompetitor?.team?.shortDisplayName || homeCompetitor?.team?.name || '',
+            awayTeamName: awayCompetitor?.team?.displayName || awayCompetitor?.team?.shortDisplayName || awayCompetitor?.team?.name || '',
+            homeScore: homeCompetitor?.score ?? '',
+            awayScore: awayCompetitor?.score ?? '',
+            gameStatus
+          };
+        }).filter(Boolean);
+      } catch (error) {
+        console.log('ESPN fetch failed');
+        return [];
+      }
+    }
+
+    async function syncEspnScores() {
+      if (state.liveSyncInFlight) return;
+      state.liveSyncInFlight = true;
+
+      try {
+        const games = await fetchEspnScores();
+        const updatedGameIds = [];
+
+        games.forEach(game => {
+          const updatedId = updateGameFromEspn(
+            game.awayTeamName,
+            game.homeTeamName,
+            game.awayScore,
+            game.homeScore
+          );
+          if (updatedId) updatedGameIds.push(updatedId);
+        });
+
+        state.liveBracketLastUpdated = games.length
+          ? new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+          : state.liveBracketLastUpdated;
+
+        if (updatedGameIds.length) {
+          markGamesUpdated(updatedGameIds);
+        }
+      } finally {
+        state.liveSyncInFlight = false;
+        renderAll();
+      }
+    }
+
+    function startLiveMode() {
+      if (liveInterval) return;
+      state.liveMode = true;
+      renderAll();
+      syncEspnScores();
+      liveInterval = setInterval(syncEspnScores, LIVE_REFRESH_MS);
+    }
+
+    function stopLiveMode() {
+      clearInterval(liveInterval);
+      liveInterval = null;
+      state.liveMode = false;
+      renderAll();
+    }
+
+    function shuffle(array) {
+      const copy = [...array];
+      for (let i = copy.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [copy[i], copy[j]] = [copy[j], copy[i]];
+      }
+      return copy;
+    }
+
+    function randomizeTeams() {
+      const allTeams = state.rounds.round32.flatMap(g => [g.teamA?.name, g.teamB?.name]).filter(Boolean);
+      const shuffled = shuffle(allTeams);
+      state.players.forEach((player, i) => {
+        player.teamNames = shuffled.slice(i * 4, i * 4 + 4);
+      });
+      renderAll();
+    }
+
+    function setPlayerName(id, value) {
+      const player = state.players.find(p => p.id === id);
+      if (player) player.name = value || `Player ${id}`;
+      renderAll();
+    }
+
+    function getPlayerById(id) {
+      return state.players.find(p => p.id === id);
+    }
+
+    function getOwners(teamName) {
+      if (!teamName) return [];
+      return state.players.filter(p => p.teamNames.includes(teamName));
+    }
+
+    function teamStillAliveForPlayer(teamName, playerId) {
+      const rounds = ['round32', 'sweet16', 'elite8', 'final4', 'championship'];
+      for (const round of rounds) {
+        for (const game of state.rounds[round]) {
+          const hasTeam = game.teamA?.name === teamName || game.teamB?.name === teamName;
+          if (!hasTeam) continue;
+          if (round === 'final4' || round === 'championship') {
+            if (game.winner && game.winner !== teamName) return false;
+          } else {
+            if (game.coverTeam && game.coverTeam !== teamName) return false;
+          }
+        }
+      }
+      return true;
+    }
+
+    function aliveCount(player) {
+      return player.teamNames.filter(t => teamStillAliveForPlayer(t, player.id)).length;
+    }
+
+    function computeResult(game) {
+      const a = Number(game.scoreA);
+      const b = Number(game.scoreB);
+      if (Number.isNaN(a) || Number.isNaN(b) || game.scoreA === '' || game.scoreB === '') {
+        game.winner = null;
+        game.coverTeam = null;
+        return;
+      }
+
+      const marginForA = a - b;
+      game.winner = a > b ? game.teamA?.name : b > a ? game.teamB?.name : 'TIE';
+
+      if (game.round === 'final4' || game.round === 'championship') {
+        game.coverTeam = null;
+        return;
+      }
+
+      if (!game.teamA || !game.teamB) {
+        game.coverTeam = null;
+        return;
+      }
+
+      const adjusted = marginForA + Number(game.spread || 0);
+      if (adjusted > 0) game.coverTeam = game.teamA.name;
+      else if (adjusted < 0) game.coverTeam = game.teamB.name;
+      else game.coverTeam = 'PUSH';
+    }
+
+    function propagateBracket() {
+      state.rounds.round32.forEach(computeResult);
+      state.rounds.sweet16.forEach(computeResult);
+      state.rounds.elite8.forEach(computeResult);
+      state.rounds.final4.forEach(computeResult);
+      state.rounds.championship.forEach(computeResult);
+
+      for (let r = 0; r < 4; r++) {
+        const g1 = state.rounds.round32[r * 4 + 0];
+        const g2 = state.rounds.round32[r * 4 + 1];
+        const g3 = state.rounds.round32[r * 4 + 2];
+        const g4 = state.rounds.round32[r * 4 + 3];
+        const s1 = state.rounds.sweet16[r * 2 + 0];
+        const s2 = state.rounds.sweet16[r * 2 + 1];
+        s1.teamA = g1.winner && g1.winner !== 'TIE' ? findTeamByName(g1.winner) : null;
+        s1.teamB = g2.winner && g2.winner !== 'TIE' ? findTeamByName(g2.winner) : null;
+        s2.teamA = g3.winner && g3.winner !== 'TIE' ? findTeamByName(g3.winner) : null;
+        s2.teamB = g4.winner && g4.winner !== 'TIE' ? findTeamByName(g4.winner) : null;
+      }
+
+      state.rounds.sweet16.forEach(game => {
+        if (!game.teamA || !game.teamB) {
+          game.scoreA = '';
+          game.scoreB = '';
+          game.winner = null;
+          game.coverTeam = null;
+        }
+      });
+      state.rounds.sweet16.forEach(computeResult);
+
+      for (let r = 0; r < 4; r++) {
+        const s1 = state.rounds.sweet16[r * 2 + 0];
+        const s2 = state.rounds.sweet16[r * 2 + 1];
+        const e = state.rounds.elite8[r];
+        e.teamA = s1.winner && s1.winner !== 'TIE' ? findTeamByName(s1.winner) : null;
+        e.teamB = s2.winner && s2.winner !== 'TIE' ? findTeamByName(s2.winner) : null;
+      }
+
+      state.rounds.elite8.forEach(game => {
+        if (!game.teamA || !game.teamB) {
+          game.scoreA = '';
+          game.scoreB = '';
+          game.winner = null;
+          game.coverTeam = null;
+        }
+      });
+      state.rounds.elite8.forEach(computeResult);
+
+      const f4a = state.rounds.final4[0];
+      const f4b = state.rounds.final4[1];
+      f4a.teamA = state.rounds.elite8[0].winner && state.rounds.elite8[0].winner !== 'TIE' ? findTeamByName(state.rounds.elite8[0].winner) : null;
+      f4a.teamB = state.rounds.elite8[1].winner && state.rounds.elite8[1].winner !== 'TIE' ? findTeamByName(state.rounds.elite8[1].winner) : null;
+      f4b.teamA = state.rounds.elite8[2].winner && state.rounds.elite8[2].winner !== 'TIE' ? findTeamByName(state.rounds.elite8[2].winner) : null;
+      f4b.teamB = state.rounds.elite8[3].winner && state.rounds.elite8[3].winner !== 'TIE' ? findTeamByName(state.rounds.elite8[3].winner) : null;
+
+      state.rounds.final4.forEach(game => {
+        if (!game.teamA || !game.teamB) {
+          game.scoreA = '';
+          game.scoreB = '';
+          game.winner = null;
+          game.coverTeam = null;
+        }
+      });
+      state.rounds.final4.forEach(computeResult);
+
+      const champ = state.rounds.championship[0];
+      champ.teamA = f4a.winner && f4a.winner !== 'TIE' ? findTeamByName(f4a.winner) : null;
+      champ.teamB = f4b.winner && f4b.winner !== 'TIE' ? findTeamByName(f4b.winner) : null;
+      if (!champ.teamA || !champ.teamB) {
+        champ.scoreA = '';
+        champ.scoreB = '';
+        champ.winner = null;
+        champ.coverTeam = null;
+      }
+      computeResult(champ);
+    }
+
+    function findTeamByName(name) {
+      if (!name) return null;
+      const allGames = getAllGames();
+      for (const g of allGames) {
+        if (g.teamA?.name === name) return { ...g.teamA };
+        if (g.teamB?.name === name) return { ...g.teamB };
+      }
+      return { seed: '', name };
+    }
+
+    function setGameField(round, id, field, value) {
+      const game = state.rounds[round].find(g => g.id === id);
+      if (!game) return;
+      game[field] = value;
+      propagateBracket();
+      renderAll();
+    }
+
+    function playerHighlightedInGame(game) {
+      if (!state.activePlayerId) return false;
+      const player = getPlayerById(state.activePlayerId);
+      if (!player) return false;
+      return player.teamNames.includes(game.teamA?.name) || player.teamNames.includes(game.teamB?.name);
+    }
+
+    function renderPlayerInputs() {
+      const el = document.getElementById('playerInputs');
+      el.innerHTML = state.players.map(player => `
+        <div class="player-row">
+          <label for="player_${player.id}">Player ${player.id}</label>
+          <input id="player_${player.id}" value="${escapeHtml(player.name)}" />
+        </div>
+      `).join('');
+
+      state.players.forEach(player => {
+        document.getElementById(`player_${player.id}`).addEventListener('input', e => {
+          setPlayerName(player.id, e.target.value);
+        });
+      });
+    }
+
+    function renderAssignments() {
+      const el = document.getElementById('assignmentsTable');
+      el.innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th>Entrant</th>
+              <th>Assigned Teams</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${state.players.map(player => `
+              <tr>
+                <td>
+                  <span class="chip player-chip ${state.activePlayerId === player.id ? 'active' : ''}" onclick="toggleActivePlayer(${player.id})">${escapeHtml(player.name)}</span>
+                </td>
+                <td>
+                  <div class="team-chips">
+                    ${player.teamNames.length ? player.teamNames.map(team => `
+                      <span class="chip ${teamStillAliveForPlayer(team, player.id) ? 'alive' : 'dead'}">${escapeHtml(team)}</span>
+                    `).join('') : '<span class="muted small">No teams assigned yet</span>'}
+                  </div>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+      document.getElementById('activePlayerLabel').textContent = state.activePlayerId ? getPlayerById(state.activePlayerId)?.name || 'None' : 'None';
+    }
+
+    function renderLeaderboard() {
+      const sorted = [...state.players].sort((a,b) => aliveCount(b) - aliveCount(a));
+      const el = document.getElementById('leaderboardTable');
+      el.innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th>Rank</th>
+              <th>Entrant</th>
+              <th>Teams Alive</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${sorted.map((player, idx) => `
+              <tr>
+                <td>${idx + 1}</td>
+                <td>${escapeHtml(player.name)}</td>
+                <td>${aliveCount(player)}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    }
+
+    function renderGameCard(game, roundKey, label) {
+      const isFinalMode = game.round === 'final4' || game.round === 'championship';
+      const ownersA = getOwners(game.teamA?.name);
+      const ownersB = getOwners(game.teamB?.name);
+      const classes = [
+        'game-card',
+        playerHighlightedInGame(game) ? 'highlight' : '',
+        state.recentUpdatedGameIds.has(game.id) ? 'live-updated' : ''
+      ].filter(Boolean).join(' ');
+
+      return `
+        <div class="${classes}">
+          <div class="round-label">${label}</div>
+          <div class="small muted" style="margin-bottom:8px;">${escapeHtml(game.region || '')}</div>
+
+          ${renderTeamLine(game, 'A', ownersA, isFinalMode, roundKey)}
+          ${renderTeamLine(game, 'B', ownersB, isFinalMode, roundKey)}
+
+          <div class="small muted" style="margin-top:8px;">
+            ${isFinalMode ? `<strong>Mode:</strong> Winner advances` : `<strong>Spread:</strong> ${game.teamA?.name || 'TBD'} ${game.spread > 0 ? '+' : ''}${game.spread}`}
+          </div>
+          <div class="small" style="margin-top:6px; color:${isFinalMode ? '#cfe1ff' : '#ffecb3'};">
+            ${renderResultText(game, isFinalMode)}
+          </div>
+        </div>
+      `;
+    }
+
+    function renderTeamLine(game, side, owners, isFinalMode, roundKey) {
+      const team = side === 'A' ? game.teamA : game.teamB;
+      const scoreField = side === 'A' ? 'scoreA' : 'scoreB';
+      const isWinner = game.winner && game.winner === team?.name;
+      const activeOwnerClass = owners.some(o => o.id === state.activePlayerId) ? 'active-owner' : '';
+      return `
+        <div class="team-line ${isWinner ? 'winner' : ''}">
+          <div class="matchup-line">
+            <div>
+              <div class="team-name">${team ? `(${team.seed || ''}) ${escapeHtml(team.name)}` : 'TBD'}</div>
+              <div class="team-meta">${!team ? 'Awaiting previous round winner' : owners.length ? `Owned by ${owners.length}` : 'Unassigned'}</div>
+            </div>
+            <input type="number" value="${game[scoreField]}" ${!team ? 'disabled' : ''} onchange="setGameField('${roundKey}','${game.id}','${scoreField}', this.value)" />
+            <div class="small muted">${side === 'A' && !isFinalMode ? 'Fav' : ''}</div>
+          </div>
+          <div class="ownership">
+            ${owners.length ? owners.map(owner => `<span class="owner ${owner.id === state.activePlayerId ? 'active-owner' : ''}">${escapeHtml(owner.name)}</span>`).join('') : '<span class="small muted">No entrants own this team</span>'}
+          </div>
+        </div>
+      `;
+    }
+
+    function renderResultText(game, isFinalMode) {
+      if (game.scoreA === '' || game.scoreB === '') return 'Enter both scores to calculate result.';
+      if (game.winner === 'TIE') return 'Game tied in current entry. Update with final score.';
+      if (isFinalMode) return game.winner ? `${escapeHtml(game.winner)} advances.` : 'Awaiting result.';
+      if (game.coverTeam === 'PUSH') return 'Spread result is a push. No cover winner recorded.';
+      return game.coverTeam ? `${escapeHtml(game.coverTeam)} covered and survives.` : 'Awaiting spread result.';
+    }
+
+    function renderRegions() {
+      const el = document.getElementById('regionsGrid');
+      const byRegion = regions.map(region => state.rounds.round32.filter(g => g.region === region));
+      el.innerHTML = byRegion.map((games, idx) => `
+        <div class="region-col">
+          <h3>${regions[idx]}</h3>
+          ${games.map(g => renderGameCard(g, 'round32', 'Round of 32')).join('')}
+          <div class="panel" style="padding:12px;background:#101834;border-style:dashed;">
+            <h4>Sweet 16 (${regions[idx]})</h4>
+            ${state.rounds.sweet16.filter(g => g.region === regions[idx]).map(g => renderGameCard(g, 'sweet16', 'Sweet 16')).join('')}
+            <h4 style="margin-top:14px;">Elite 8 (${regions[idx]})</h4>
+            ${state.rounds.elite8.filter(g => g.region === regions[idx]).map(g => renderGameCard(g, 'elite8', 'Elite 8')).join('')}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function renderFinals() {
+      const el = document.getElementById('finalsGrid');
+      el.innerHTML = `
+        <div>
+          <h3>Final Four 1</h3>
+          ${renderGameCard(state.rounds.final4[0], 'final4', 'Final Four')}
+        </div>
+        <div>
+          <h3>Final Four 2</h3>
+          ${renderGameCard(state.rounds.final4[1], 'final4', 'Final Four')}
+        </div>
+        <div>
+          <h3>Championship</h3>
+          ${renderGameCard(state.rounds.championship[0], 'championship', 'Championship')}
+        </div>
+      `;
+    }
+
+    function renderLiveBracketView() {
+      const el = document.getElementById('liveBracketGrid');
+      const summary = document.getElementById('liveBracketSummary');
+      const games = state.liveBracketGames;
+
+      if (!games.length) {
+        summary.textContent = state.liveSyncInFlight ? 'Syncing live bracket...' : 'Waiting for sync';
+        el.innerHTML = `
+          <div class="panel" style="background:#101834;border-style:dashed;">
+            <p class="muted" style="margin-bottom:0;">Use Manual Sync or enable Live Mode to load the current tournament bracket view.</p>
+          </div>
+        `;
+        return;
+      }
+
+      summary.textContent = `${games.length} live games${state.liveBracketLastUpdated ? ` • Updated ${state.liveBracketLastUpdated}` : ''}`;
+
+      const brackets = buildLiveBracketRegions(games);
+      const leftRegions = LIVE_BRACKET_REGION_ORDER.left.map(regionName => findLiveRegion(brackets, regionName));
+      const rightRegions = LIVE_BRACKET_REGION_ORDER.right.map(regionName => findLiveRegion(brackets, regionName));
+
+      el.innerHTML = `
+        <div class="live-bracket-side">
+          ${leftRegions.map(region => renderRegionBracket(region, 'left')).join('')}
+        </div>
+        <div class="live-bracket-center">
+          <div class="center-brand">
+            <h3>Live Bracket</h3>
+            <p class="small muted" style="margin-bottom:0;">Current tournament slate from ESPN</p>
+          </div>
+          ${renderCenterFinals(leftRegions, rightRegions)}
+        </div>
+        <div class="live-bracket-side">
+          ${rightRegions.map(region => renderRegionBracket(region, 'right')).join('')}
+        </div>
+      `;
+    }
+
+    function renderRegionBracket(regionBracket, side) {
+      const rounds = side === 'right' ? [...regionBracket.rounds].reverse() : regionBracket.rounds;
+      const liveCount = regionBracket.rounds[0]?.entries?.filter(entry => entry.kind === 'game').length || 0;
+      return `
+        <section class="region-bracket ${side}">
+          <div class="region-bracket-header">
+            <span>${escapeHtml(regionBracket.regionName.replace(' Region', ''))}</span>
+            <span>${liveCount}/${regionBracket.rounds[0]?.entries?.length || 0} live</span>
+          </div>
+          <div class="region-bracket-rounds">
+            ${rounds.map((round, displayIndex) => renderRegionRound(round, displayIndex, rounds.length)).join('')}
+          </div>
+        </section>
+      `;
+    }
+
+    function renderRegionRound(round, displayIndex, totalRounds) {
+      const gap = 16 + (round.depth * 28);
+      const offset = round.depth * 22;
+      const connectNext = displayIndex < totalRounds - 1;
+      const connectorHeight = round.depth === 0 ? 0 : 22 + (round.depth * 18);
+
+      return `
+        <div class="region-round" style="--slot-gap:${gap}px; --slot-offset:${offset}px; --connector-height:${connectorHeight}px;">
+          <div class="region-round-title">${escapeHtml(round.label)}</div>
+          <div class="region-round-stack">
+            ${round.entries.map(entry => renderBracketSlot(entry, connectNext)).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    function renderBracketSlot(entry, connectNext) {
+      const updated = entry.matchedPoolGameId && state.recentUpdatedGameIds.has(entry.matchedPoolGameId);
+      const slotTag = entry.kind === 'placeholder'
+        ? '<span class="slot-pill">Open slot</span>'
+        : entry.matchedPoolGameId
+          ? '<span class="slot-pill">Pool game</span>'
+          : '<span class="slot-pill">Live only</span>';
+      return `
+        <div class="bracket-slot ${updated ? 'updated' : ''} ${connectNext ? 'connect-next' : ''}">
+          <div class="bracket-slot-head">
+            <span>${escapeHtml(entry.status || 'Pending')}</span>
+            <span>${escapeHtml(entry.detail || '')}</span>
+          </div>
+          ${renderBracketSlotTeam(entry.rawTeamA, entry.scoreA, entry.winner === 'A', entry.seedA)}
+          ${renderBracketSlotTeam(entry.rawTeamB, entry.scoreB, entry.winner === 'B', entry.seedB)}
+          <div class="slot-meta">${slotTag}</div>
+        </div>
+      `;
+    }
+
+    function renderBracketSlotTeam(name, score, isWinner, seed) {
+      return `
+        <div class="slot-team ${isWinner ? 'winner' : ''}">
+          <span class="slot-team-main">
+            <span class="slot-team-seed">${escapeHtml(String(seed || ''))}</span>
+            <span class="slot-team-name">${escapeHtml(name || 'TBD')}</span>
+          </span>
+          <span class="slot-team-score">${score === '' ? '-' : escapeHtml(score)}</span>
+        </div>
+      `;
+    }
+
+    function renderCenterFinals(leftRegions, rightRegions) {
+      const east = leftRegions.find(region => region.regionName === 'East Region');
+      const south = leftRegions.find(region => region.regionName === 'South Region');
+      const west = rightRegions.find(region => region.regionName === 'West Region');
+      const midwest = rightRegions.find(region => region.regionName === 'Midwest Region');
+
+      const semifinalA = {
+        rawTeamA: getAdvancingTeam(east?.champion),
+        rawTeamB: getAdvancingTeam(west?.champion),
+        scoreA: '',
+        scoreB: '',
+        winner: null,
+        status: 'Final Four',
+        detail: 'East vs West',
+        spread: null,
+        matchedPoolGameId: null
+      };
+
+      const semifinalB = {
+        rawTeamA: getAdvancingTeam(south?.champion),
+        rawTeamB: getAdvancingTeam(midwest?.champion),
+        scoreA: '',
+        scoreB: '',
+        winner: null,
+        status: 'Final Four',
+        detail: 'South vs Midwest',
+        spread: null,
+        matchedPoolGameId: null
+      };
+
+      const championship = {
+        rawTeamA: getAdvancingTeam(semifinalA),
+        rawTeamB: getAdvancingTeam(semifinalB),
+        scoreA: '',
+        scoreB: '',
+        winner: null,
+        status: 'Championship',
+        detail: 'National title game',
+        spread: null,
+        matchedPoolGameId: null
+      };
+
+      return `
+        <div class="finals-track">
+          <div class="finals-stage">
+            <h4>Final Four</h4>
+            ${renderBracketSlot(semifinalA, false)}
+            ${renderBracketSlot(semifinalB, false)}
+          </div>
+          <div class="finals-stage">
+            <h4>Championship</h4>
+            ${renderBracketSlot(championship, false)}
+          </div>
+        </div>
+      `;
+    }
+
+    function renderLiveStatus() {
+      const indicator = document.getElementById('liveIndicator');
+      const isLive = Boolean(liveInterval);
+      indicator.textContent = `Live Scores: ${isLive ? 'ON' : 'OFF'}`;
+      indicator.className = `live-indicator ${isLive ? 'on' : 'off'}`;
+      document.getElementById('enableLiveBtn').disabled = isLive;
+      document.getElementById('disableLiveBtn').disabled = !isLive;
+      document.getElementById('manualSyncBtn').disabled = state.liveSyncInFlight;
+    }
+
+    function renderAll() {
+      renderPlayerInputs();
+      renderAssignments();
+      renderLeaderboard();
+      renderRegions();
+      renderFinals();
+      renderLiveBracketView();
+      renderLiveStatus();
+    }
+
+    function loadSampleBracket() {
+      randomizeTeams();
+
+      const sampleScores = {
+        round32: [ [78,70], [65,72], [81,76], [69,74], [80,73], [67,71], [74,70], [79,82], [76,61], [72,70], [64,68], [73,77], [70,66], [66,71], [75,78], [82,69] ],
+        sweet16: [ [77,70], [73,69], [68,72], [75,74], [70,66], [64,69], [81,78], [74,71] ],
+        elite8: [ [72,68], [66,70], [71,73], [78,74] ],
+        final4: [ [75,71], [69,74] ],
+        championship: [ [76,72] ]
+      };
+
+      state.rounds.round32.forEach((g, i) => {
+        g.scoreA = sampleScores.round32[i][0];
+        g.scoreB = sampleScores.round32[i][1];
+      });
+      propagateBracket();
+
+      state.rounds.sweet16.forEach((g, i) => {
+        if (g.teamA && g.teamB) {
+          g.scoreA = sampleScores.sweet16[i][0];
+          g.scoreB = sampleScores.sweet16[i][1];
+        }
+      });
+      propagateBracket();
+
+      state.rounds.elite8.forEach((g, i) => {
+        if (g.teamA && g.teamB) {
+          g.scoreA = sampleScores.elite8[i][0];
+          g.scoreB = sampleScores.elite8[i][1];
+        }
+      });
+      propagateBracket();
+
+      state.rounds.final4.forEach((g, i) => {
+        if (g.teamA && g.teamB) {
+          g.scoreA = sampleScores.final4[i][0];
+          g.scoreB = sampleScores.final4[i][1];
+        }
+      });
+      propagateBracket();
+
+      const c = state.rounds.championship[0];
+      if (c.teamA && c.teamB) {
+        c.scoreA = sampleScores.championship[0][0];
+        c.scoreB = sampleScores.championship[0][1];
+      }
+      propagateBracket();
+      renderAll();
+    }
+
+    function toggleActivePlayer(playerId) {
+      state.activePlayerId = state.activePlayerId === playerId ? null : playerId;
+      renderAll();
+    }
+
+    function escapeHtml(str) {
+      return String(str ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+    }
+
+    window.setGameField = setGameField;
+    window.toggleActivePlayer = toggleActivePlayer;
+
+    document.getElementById('randomizeBtn').addEventListener('click', randomizeTeams);
+    document.getElementById('sampleBtn').addEventListener('click', loadSampleBracket);
+    document.getElementById('resetScoresBtn').addEventListener('click', resetScores);
+    document.getElementById('enableLiveBtn').addEventListener('click', startLiveMode);
+    document.getElementById('disableLiveBtn').addEventListener('click', stopLiveMode);
+    document.getElementById('manualSyncBtn').addEventListener('click', syncEspnScores);
+    document.getElementById('resetAllBtn').addEventListener('click', resetAll);
+
+    resetAll();
+  </script>
+</body>
+</html>

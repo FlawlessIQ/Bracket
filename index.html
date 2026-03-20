@@ -560,7 +560,7 @@
     <div class="topbar">
       <div class="title-block">
         <h1>March Madness Survivor Pool</h1>
-        <p>32 teams, 8 entrants, 4 random teams each. Spread survivor until Final Four, then straight winner advances.</p>
+        <p id="appSubtitle">32 teams, 8 entrants, 4 random teams each. Spread survivor until Final Four, then straight winner advances.</p>
       </div>
       <div class="actions">
         <button id="randomizeBtn">Randomize Teams</button>
@@ -576,7 +576,13 @@
 
     <div class="grid setup-grid">
       <div class="panel">
-        <h3>Entrants</h3>
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px;">
+          <h3 style="margin-bottom:0;">Entrants</h3>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <label for="playerCountInput" class="small muted">Count</label>
+            <input id="playerCountInput" type="number" min="2" max="32" step="1" value="8" style="width:88px;" />
+          </div>
+        </div>
         <div class="player-list" id="playerInputs"></div>
         <p class="small muted" style="margin-top:12px;">Tip: click a player chip anywhere on the page to highlight their teams.</p>
       </div>
@@ -586,7 +592,7 @@
           <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
             <div>
               <h3 style="margin-bottom:6px;">Assignments</h3>
-              <p class="muted small">Each entrant gets 4 teams from the Round of 32 field.</p>
+              <p id="assignmentSummary" class="muted small">Each entrant gets 4 teams from the Round of 32 field.</p>
             </div>
             <div>
               <span class="chip">Active Highlight: <strong id="activePlayerLabel">None</strong></span>
@@ -660,10 +666,7 @@
       'Trojans', 'Spartans', 'Pirates', 'Jayhawks', 'Bears', 'Eagles', 'Titans', 'RedHawks'
     ];
 
-    const defaultPlayerNames = [
-      'Player 1','Player 2','Player 3','Player 4',
-      'Player 5','Player 6','Player 7','Player 8'
-    ];
+    const DEFAULT_PLAYER_COUNT = 8;
 
     const initialMatchups = [
       { region: 'East', teamA: { seed: 5, name: "St. John's" }, teamB: { seed: 12, name: 'Northern Iowa' }, spread: -5.5 },
@@ -701,7 +704,8 @@
     };
 
     const state = {
-      players: defaultPlayerNames.map((name, i) => ({ id: i + 1, name, teamNames: [] })),
+      playerCount: DEFAULT_PLAYER_COUNT,
+      players: [],
       activePlayerId: null,
       liveMode: false,
       liveSyncInFlight: false,
@@ -719,6 +723,45 @@
       }
     };
     let liveInterval = null;
+
+    function createDefaultPlayerNames(count) {
+      return Array.from({ length: count }, (_, index) => `Player ${index + 1}`);
+    }
+
+    function buildPlayers(count, existingPlayers = []) {
+      const defaultNames = createDefaultPlayerNames(count);
+      return defaultNames.map((defaultName, index) => ({
+        id: index + 1,
+        name: existingPlayers[index]?.name || defaultName,
+        teamNames: existingPlayers[index]?.teamNames || []
+      }));
+    }
+
+    function getTeamsPerPlayerText() {
+      const totalTeams = state.rounds.round32.flatMap(game => [game.teamA?.name, game.teamB?.name]).filter(Boolean).length || 32;
+      const minTeams = Math.floor(totalTeams / state.playerCount);
+      const extraTeams = totalTeams % state.playerCount;
+      if (extraTeams === 0) {
+        return `${minTeams} random teams each`;
+      }
+      return `${minTeams}-${minTeams + 1} random teams each`;
+    }
+
+    function updatePlayerCount(nextCount) {
+      const parsedCount = Number(nextCount);
+      if (!Number.isInteger(parsedCount)) return;
+
+      const safeCount = Math.max(2, Math.min(32, parsedCount));
+      if (safeCount === state.playerCount) {
+        document.getElementById('playerCountInput').value = String(safeCount);
+        return;
+      }
+
+      state.playerCount = safeCount;
+      state.players = buildPlayers(safeCount, state.players);
+      document.getElementById('playerCountInput').value = String(safeCount);
+      randomizeTeams();
+    }
 
     function createInitialGames() {
       return initialMatchups.map((matchup, index) => {
@@ -777,7 +820,7 @@
     }
 
     function resetAll() {
-      state.players = defaultPlayerNames.map((name, i) => ({ id: i + 1, name, teamNames: [] }));
+      state.players = buildPlayers(state.playerCount);
       state.activePlayerId = null;
       state.liveBracketGames = [];
       state.liveBracketLastUpdated = '';
@@ -1266,8 +1309,11 @@
     function randomizeTeams() {
       const allTeams = state.rounds.round32.flatMap(g => [g.teamA?.name, g.teamB?.name]).filter(Boolean);
       const shuffled = shuffle(allTeams);
-      state.players.forEach((player, i) => {
-        player.teamNames = shuffled.slice(i * 4, i * 4 + 4);
+      state.players.forEach(player => {
+        player.teamNames = [];
+      });
+      shuffled.forEach((teamName, index) => {
+        state.players[index % state.players.length].teamNames.push(teamName);
       });
       renderAll();
     }
@@ -1455,6 +1501,7 @@
 
     function renderAssignments() {
       const el = document.getElementById('assignmentsTable');
+      document.getElementById('assignmentSummary').textContent = `Each entrant gets ${getTeamsPerPlayerText()} from the Round of 32 field.`;
       el.innerHTML = `
         <table>
           <thead>
@@ -1772,6 +1819,8 @@
     }
 
     function renderAll() {
+      document.getElementById('appSubtitle').textContent = `32 teams, ${state.playerCount} entrants, ${getTeamsPerPlayerText()}. Spread survivor until Final Four, then straight winner advances.`;
+      document.getElementById('playerCountInput').value = String(state.playerCount);
       renderPlayerInputs();
       renderAssignments();
       renderLeaderboard();
@@ -1855,6 +1904,9 @@
     document.getElementById('disableLiveBtn').addEventListener('click', stopLiveMode);
     document.getElementById('manualSyncBtn').addEventListener('click', syncEspnScores);
     document.getElementById('resetAllBtn').addEventListener('click', resetAll);
+    document.getElementById('playerCountInput').addEventListener('change', event => {
+      updatePlayerCount(event.target.value);
+    });
 
     resetAll();
   </script>

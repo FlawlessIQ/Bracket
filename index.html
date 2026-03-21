@@ -700,6 +700,10 @@
       align-items: start;
     }
 
+    .dashboard-shell.is-static {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
     .control-rail {
       display: grid;
       gap: 18px;
@@ -1168,22 +1172,18 @@
       <div class="hero-copy">
         <p class="eyebrow">2026 Survivor Pool</p>
         <h1>March Madness<br />Survivor Pool</h1>
-        <p id="appSubtitle">Official Round of 32 field locked from your 2026 bracket sheet. Assign entrants, track survivors, and follow the path to the title.</p>
+        <p id="appSubtitle">The field and all 16 submitted entries are locked in. Track who is still alive and follow the bracket in one clean public view.</p>
         <div class="hero-meta">
-          <span class="hero-pill">Official 2026 Second-Round Entries Hardcoded</span>
-          <span class="hero-pill">Designed for one shared public link</span>
+          <span class="hero-pill">16 locked entries</span>
+          <span class="hero-pill">2 teams per entrant</span>
           <span id="liveIndicator" class="live-indicator off">Live Scores: OFF</span>
         </div>
       </div>
       <div class="hero-actions">
-        <div class="actions">
-          <button id="randomizeBtn">Randomize Teams</button>
-          <button id="sampleBtn" class="secondary">Load Sample Bracket</button>
-          <button id="resetScoresBtn" class="secondary">Reset Scores</button>
-          <button id="manualSyncBtn" class="secondary">Sync Now</button>
-          <button id="enableLiveBtn" class="secondary">Enable Live Scores</button>
-          <button id="disableLiveBtn" class="secondary">Disable Live Scores</button>
-          <button id="resetAllBtn" class="warning">Reset Everything</button>
+        <div class="panel" style="padding:18px 20px; min-width:min(100%, 280px);">
+          <div class="small muted" style="letter-spacing:0.14em; text-transform:uppercase; margin-bottom:8px;">Pool Status</div>
+          <div style="font-size:1.1rem; font-weight:700; margin-bottom:6px;">Entries are fixed</div>
+          <div class="muted small">No setup controls, no edits, no randomization. This page is now the shared scoreboard.</div>
         </div>
       </div>
     </section>
@@ -1191,7 +1191,7 @@
     <section class="overview-grid">
       <div class="overview-card">
         <span>Entrants</span>
-        <strong id="entrantCountStat">8</strong>
+        <strong id="entrantCountStat">16</strong>
       </div>
       <div class="overview-card">
         <span>Teams In Pool</span>
@@ -1207,47 +1207,13 @@
       </div>
     </section>
 
-    <div class="dashboard-shell">
-      <aside class="control-rail">
-        <section class="panel rail-panel">
-          <div class="section-head">
-            <div>
-              <h3 class="section-title">Entrants</h3>
-              <p class="rail-note">Set the pool size, rename entrants, then randomize assignments.</p>
-            </div>
-            <div style="display:flex;align-items:center;gap:8px;">
-              <label for="playerCountInput" class="small muted">Count</label>
-              <input id="playerCountInput" type="number" min="2" max="32" step="1" value="8" style="width:88px;" />
-            </div>
-          </div>
-          <div class="player-list" id="playerInputs"></div>
-        </section>
-
-        <section class="panel rail-panel">
-          <h3 class="section-title">Pool Rules</h3>
-          <div class="note-stack">
-            <div class="note-block">
-              <strong>Rounds Through Elite 8</strong>
-              Teams survive only if they cover the spread in that round.
-            </div>
-            <div class="note-block">
-              <strong>Final Four And Title</strong>
-              Straight-up winners advance. No spread is used.
-            </div>
-            <div class="note-block">
-              <strong>Highlight Mode</strong>
-              Click any entrant card to spotlight their teams across the bracket.
-            </div>
-          </div>
-        </section>
-      </aside>
-
+    <div class="dashboard-shell is-static">
       <main class="content-shell">
         <section class="panel assignments">
           <div class="section-head">
             <div>
               <h2 class="section-title">Entrant Assignments</h2>
-              <p id="assignmentSummary" class="muted small">Each entrant gets 4 teams from the Round of 32 field.</p>
+              <p id="assignmentSummary" class="muted small">Each entrant is locked with 2 submitted teams.</p>
             </div>
             <span class="highlight-chip">Active Highlight: <strong id="activePlayerLabel">None</strong></span>
           </div>
@@ -1348,7 +1314,26 @@
       'Trojans', 'Spartans', 'Pirates', 'Jayhawks', 'Bears', 'Eagles', 'Titans', 'RedHawks'
     ];
 
-    const DEFAULT_PLAYER_COUNT = 8;
+    const FIXED_PLAYERS = [
+      { name: 'RON', teamNames: ['Florida Gators', 'Gonzaga Bulldogs'] },
+      { name: 'RON (2)', teamNames: ['Duke Blue Devils', 'Texas A&M Aggies'] },
+      { name: 'GONDEVAS', teamNames: ['Arizona Wildcats', 'Saint Louis Billikens'] },
+      { name: 'GONDEVAS (2)', teamNames: ['Houston Cougars', 'Nebraska Cornhuskers'] },
+      { name: 'MATT', teamNames: ['UConn Huskies', 'Texas Longhorns'] },
+      { name: 'MATT (2)', teamNames: ['Michigan State Spartans', 'VCU Rams'] },
+      { name: 'DAVE', teamNames: ['Purdue Boilermakers', 'Miami Hurricanes'] },
+      { name: 'DAVE (2)', teamNames: ['Kansas Jayhawks', 'Utah State Aggies'] },
+      { name: 'ABRUZZO', teamNames: ['Illinois Fighting Illini', 'TCU Horned Frogs'] },
+      { name: 'ABRUZZO (2)', teamNames: ['Arkansas Razorbacks', 'Virginia Cavaliers'] },
+      { name: 'GABE', teamNames: ['Kentucky Wildcats', 'High Point Panthers'] },
+      { name: 'SAL', teamNames: ['Iowa State Cyclones', 'Texas Tech Red Raiders'] },
+      { name: 'GARY', teamNames: ['Alabama Crimson Tide', 'Vanderbilt Commodores'] },
+      { name: 'FRANK', teamNames: ['Michigan Wolverines', 'Creighton Bluejays'] },
+      { name: 'TOBIA', teamNames: ['Tennessee Volunteers', 'Louisville Cardinals'] },
+      { name: 'CONOR', teamNames: ["St. John's Red Storm", 'Iowa Hawkeyes'] }
+    ];
+
+    const DEFAULT_PLAYER_COUNT = FIXED_PLAYERS.length;
     const ROUND64_LOOKBACK_DAYS = 5;
     const ROUND32_SEED_PATHS = [
       [[1, 16], [8, 9]],
@@ -1414,16 +1399,11 @@
     };
     let liveInterval = null;
 
-    function createDefaultPlayerNames(count) {
-      return Array.from({ length: count }, (_, index) => `Player ${index + 1}`);
-    }
-
-    function buildPlayers(count, existingPlayers = []) {
-      const defaultNames = createDefaultPlayerNames(count);
-      return defaultNames.map((defaultName, index) => ({
+    function buildPlayers() {
+      return FIXED_PLAYERS.map((player, index) => ({
         id: index + 1,
-        name: existingPlayers[index]?.name || defaultName,
-        teamNames: existingPlayers[index]?.teamNames || []
+        name: player.name,
+        teamNames: [...player.teamNames]
       }));
     }
 
@@ -1432,9 +1412,9 @@
       const minTeams = Math.floor(totalTeams / state.playerCount);
       const extraTeams = totalTeams % state.playerCount;
       if (extraTeams === 0) {
-        return `${minTeams} random teams each`;
+        return `${minTeams} teams each`;
       }
-      return `${minTeams}-${minTeams + 1} random teams each`;
+      return `${minTeams}-${minTeams + 1} teams each`;
     }
 
     function updatePlayerCount(nextCount) {
@@ -1510,7 +1490,8 @@
     }
 
     function resetAll() {
-      state.players = buildPlayers(state.playerCount);
+      state.players = buildPlayers();
+      state.playerCount = state.players.length;
       state.final32Teams = initialMatchups.flatMap(matchup => [matchup.teamA, matchup.teamB]).map(team => ({
         id: canonicalizeTeamName(team.name),
         name: team.name
@@ -1521,7 +1502,6 @@
       state.rounds.round32 = createInitialGames(initialMatchups);
       buildLaterRounds();
       clearRecentUpdates();
-      randomizeTeams();
     }
 
     function formatEspnDate(date) {
@@ -2249,9 +2229,15 @@
       return state.players.find(p => p.id === id);
     }
 
+    function playerHasTeam(player, teamName) {
+      const normalizedName = normalizeTeamName(teamName);
+      if (!normalizedName) return false;
+      return player.teamNames.some(assignedTeam => normalizeTeamName(assignedTeam) === normalizedName);
+    }
+
     function getOwners(teamName) {
       if (!teamName) return [];
-      return state.players.filter(p => p.teamNames.includes(teamName));
+      return state.players.filter(player => playerHasTeam(player, teamName));
     }
 
     function isTeamInFinal32(teamName) {
@@ -2264,8 +2250,8 @@
         const mappedTeam = state.final32Teams.find(team => normalizeTeamName(team.name) === normalizeTeamName(teamName));
         const resolvedName = mappedTeam?.name || teamName;
         return {
-          id: mappedTeam?.id || canonicalizeTeamName(resolvedName),
-          name: resolvedName,
+          id: mappedTeam?.id || canonicalizeTeamName(teamName),
+          name: teamName,
           isAlive: teamStillAliveForPlayer(resolvedName, player.id)
         };
       });
@@ -2430,28 +2416,12 @@
       if (!state.activePlayerId) return false;
       const player = getPlayerById(state.activePlayerId);
       if (!player) return false;
-      return player.teamNames.includes(game.teamA?.name) || player.teamNames.includes(game.teamB?.name);
-    }
-
-    function renderPlayerInputs() {
-      const el = document.getElementById('playerInputs');
-      el.innerHTML = state.players.map(player => `
-        <div class="player-row">
-          <label for="player_${player.id}">Player ${player.id}</label>
-          <input id="player_${player.id}" value="${escapeHtml(player.name)}" />
-        </div>
-      `).join('');
-
-      state.players.forEach(player => {
-        document.getElementById(`player_${player.id}`).addEventListener('input', e => {
-          setPlayerName(player.id, e.target.value);
-        });
-      });
+      return playerHasTeam(player, game.teamA?.name) || playerHasTeam(player, game.teamB?.name);
     }
 
     function renderAssignments() {
       const el = document.getElementById('assignmentsTable');
-      document.getElementById('assignmentSummary').textContent = `Each entrant gets ${getTeamsPerPlayerText()} from the Round of 32 field.`;
+      document.getElementById('assignmentSummary').textContent = `Each entrant is locked with ${getTeamsPerPlayerText()} from the submitted board.`;
       const leaderboardOrder = [...getTeamsAliveByEntrant()].sort((a, b) => b.aliveTeams - a.aliveTeams);
       const rankByEntrantId = new Map(leaderboardOrder.map((entry, index) => [entry.entrantId, index + 1]));
 
@@ -2471,7 +2441,7 @@
                   <span class="chip ${aliveTeams ? 'alive' : 'dead'}">${aliveTeams} Alive</span>
                 </div>
                 <div class="entrant-card-stats">
-                  <span>${assignedTeams.length} teams assigned</span>
+                  <span>${assignedTeams.length} teams locked</span>
                   <span>${progress}% alive</span>
                 </div>
                 <div class="entrant-card-track"><span style="width:${progress}%;"></span></div>
@@ -2796,15 +2766,16 @@
       const isLive = Boolean(liveInterval);
       indicator.textContent = `Live Scores: ${isLive ? 'ON' : 'OFF'}`;
       indicator.className = `live-indicator ${isLive ? 'on' : 'off'}`;
-      document.getElementById('enableLiveBtn').disabled = isLive;
-      document.getElementById('disableLiveBtn').disabled = !isLive;
-      document.getElementById('manualSyncBtn').disabled = state.liveSyncInFlight;
+      const enableButton = document.getElementById('enableLiveBtn');
+      const disableButton = document.getElementById('disableLiveBtn');
+      const manualSyncButton = document.getElementById('manualSyncBtn');
+      if (enableButton) enableButton.disabled = isLive;
+      if (disableButton) disableButton.disabled = !isLive;
+      if (manualSyncButton) manualSyncButton.disabled = state.liveSyncInFlight;
     }
 
     function renderAll() {
-      document.getElementById('appSubtitle').textContent = `Official 2026 second-round field is locked from your bracket sheet. ${state.playerCount} entrants currently share ${state.rounds.round32.flatMap(game => [game.teamA?.name, game.teamB?.name]).filter(Boolean).length || 32} teams with ${getTeamsPerPlayerText()}.`;
-      document.getElementById('playerCountInput').value = String(state.playerCount);
-      renderPlayerInputs();
+      document.getElementById('appSubtitle').textContent = `The field and all ${state.playerCount} submitted entries are locked in. ${getTeamsAliveByEntrant().reduce((sum, entrant) => sum + entrant.aliveTeams, 0)} total live team positions remain in the pool.`;
       renderNameDependentViews();
       renderOverviewStats();
       renderLiveBracketView();
@@ -2878,18 +2849,8 @@
     window.setGameField = setGameField;
     window.toggleActivePlayer = toggleActivePlayer;
 
-    document.getElementById('randomizeBtn').addEventListener('click', randomizeTeams);
-    document.getElementById('sampleBtn').addEventListener('click', loadSampleBracket);
-    document.getElementById('resetScoresBtn').addEventListener('click', resetScores);
-    document.getElementById('enableLiveBtn').addEventListener('click', startLiveMode);
-    document.getElementById('disableLiveBtn').addEventListener('click', stopLiveMode);
-    document.getElementById('manualSyncBtn').addEventListener('click', syncEspnScores);
-    document.getElementById('resetAllBtn').addEventListener('click', resetAll);
-    document.getElementById('playerCountInput').addEventListener('change', event => {
-      updatePlayerCount(event.target.value);
-    });
-
     resetAll();
+    startLiveMode();
   </script>
 </body>
 </html>

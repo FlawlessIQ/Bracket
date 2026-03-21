@@ -667,6 +667,13 @@
     ];
 
     const DEFAULT_PLAYER_COUNT = 8;
+    const ROUND64_LOOKBACK_DAYS = 5;
+    const ROUND32_SEED_PATHS = [
+      [[1, 16], [8, 9]],
+      [[5, 12], [4, 13]],
+      [[6, 11], [3, 14]],
+      [[7, 10], [2, 15]]
+    ];
 
     const initialMatchups = [
       { region: 'East', teamA: { seed: 5, name: "St. John's" }, teamB: { seed: 12, name: 'Northern Iowa' }, spread: -5.5 },
@@ -706,6 +713,7 @@
     const state = {
       playerCount: DEFAULT_PLAYER_COUNT,
       players: [],
+      final32Teams: [],
       activePlayerId: null,
       liveMode: false,
       liveSyncInFlight: false,
@@ -763,8 +771,8 @@
       randomizeTeams();
     }
 
-    function createInitialGames() {
-      return initialMatchups.map((matchup, index) => {
+    function createInitialGames(matchups = initialMatchups) {
+      return matchups.map((matchup, index) => {
         const regionIndex = Math.floor(index / 4);
         const gameNumber = (index % 4) + 1;
         return makeGame(
@@ -821,12 +829,240 @@
 
     function resetAll() {
       state.players = buildPlayers(state.playerCount);
+      state.final32Teams = [];
       state.activePlayerId = null;
       state.liveBracketGames = [];
       state.liveBracketLastUpdated = '';
-      state.rounds.round32 = createInitialGames();
+      state.rounds.round32 = [];
       buildLaterRounds();
-      renderAll();
+      syncTournamentField().finally(() => {
+        renderAll();
+      });
+    }
+
+    function formatEspnDate(date) {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}${month}${day}`;
+    }
+
+    function getRecentEspnDates(count) {
+      return Array.from({ length: count }, (_, index) => {
+        const date = new Date();
+        date.setHours(12, 0, 0, 0);
+        date.setDate(date.getDate() - index);
+        return formatEspnDate(date);
+      });
+    }
+
+    function getCompetitionHeadline(event, competition) {
+      return competition?.notes?.[0]?.headline || event?.notes?.[0]?.headline || '';
+    }
+
+    function getTournamentRoundNumber(event, competition) {
+      const headline = getCompetitionHeadline(event, competition).toLowerCase();
+
+      if (headline.includes('first four')) return 0;
+      if (headline.includes('1st round') || headline.includes('round of 64')) return 1;
+      if (headline.includes('2nd round') || headline.includes('round of 32')) return 2;
+      if (headline.includes('sweet 16')) return 3;
+      if (headline.includes('elite 8')) return 4;
+      if (headline.includes('final four')) return 5;
+      if (headline.includes('championship')) return 6;
+
+      return null;
+    }
+
+    function getRegionFromHeadline(event, competition) {
+      const headline = getCompetitionHeadline(event, competition);
+      const match = headline.match(/-\s([^\-]+Region)\s-/i);
+      return match ? match[1].trim() : '';
+    }
+
+    function mapEspnRegionToAppRegion(regionName) {
+      return String(regionName || '').replace(/\s+Region$/i, '').trim();
+    }
+
+    async function fetchEspnEventsForDate(dateString) {
+      try {
+        const response = await fetch(`${LIVE_SCOREBOARD_URL}&dates=${dateString}`);
+        if (!response.ok) {
+          throw new Error(`Scoreboard request failed: ${response.status}`);
+        }
+
+        const data = await response.json();
+        return Array.isArray(data?.events) ? data.events : [];
+      } catch (error) {
+        console.log('ESPN fetch failed');
+        return [];
+      }
+    }
+
+    async function fetchRecentTournamentEvents() {
+      const dates = getRecentEspnDates(ROUND64_LOOKBACK_DAYS);
+      const eventSets = await Promise.all(dates.map(fetchEspnEventsForDate));
+      return eventSets.flat();
+    }
+
+    function getCompetitors(competition) {
+      return Array.isArray(competition?.competitors) ? competition.competitors : [];
+    }
+
+    function getWinningCompetitor(competition) {
+      const competitors = getCompetitors(competition);
+      if (competitors.length < 2) return null;
+
+      const scoredCompetitors = competitors.map(competitor => ({
+        competitor,
+        score: Number(competitor?.score ?? NaN)
+      }));
+
+      if (scoredCompetitors.some(entry => Number.isNaN(entry.score))) return null;
+      if (scoredCompetitors[0].score === scoredCompetitors[1].score) return null;
+
+      return scoredCompetitors[0].score > scoredCompetitors[1].score
+        ? scoredCompetitors[0].competitor
+        : scoredCompetitors[1].competitor;
+    }
+
+    function extractFinal32TeamEntries(events) {
+      const winners = [];
+      const seenGameIds = new Set();
+
+      events.forEach(event => {
+        const competition = event?.competitions?.[0];
+        if (!competition) return;
+        if (seenGameIds.has(event.id)) return;
+        if (competition?.status?.type?.name !== 'STATUS_FINAL') return;
+        if (getTournamentRoundNumber(event, competition) !== 1) return;
+
+        const winner = getWinningCompetitor(competition);
+        if (!winner?.team?.id) return;
+
+        seenGameIds.add(event.id);
+        winners.push({
+          id: String(winner.team.id),
+          name: winner.team.displayName || winner.team.shortDisplayName || winner.team.name || '',
+          seed: Number(winner?.curatedRank?.current ?? ''),
+          region: mapEspnRegionToAppRegion(getRegionFromHeadline(event, competition))
+        });
+      });
+
+      const uniqueWinners = [];
+      const seenTeamIds = new Set();
+
+      winners.forEach(team => {
+        if (!team.id || seenTeamIds.has(team.id)) return;
+        seenTeamIds.add(team.id);
+        uniqueWinners.push(team);
+      });
+
+      if (uniqueWinners.length !== 32) {
+        console.error('Final 32 extraction failed');
+      }
+
+      return uniqueWinners;
+    }
+
+    function buildRound32SpreadLookup(events) {
+      const spreadLookup = {};
+
+      events.forEach(event => {
+        const competition = event?.competitions?.[0];
+        if (!competition || getTournamentRoundNumber(event, competition) !== 2) return;
+
+        const competitors = getCompetitors(competition);
+        if (competitors.length < 2) return;
+
+        const favoriteSpread = Number(competition?.odds?.[0]?.spread);
+        if (Number.isNaN(favoriteSpread)) return;
+
+        const teamA = competitors[0]?.team?.displayName || competitors[0]?.team?.shortDisplayName || competitors[0]?.team?.name;
+        const teamB = competitors[1]?.team?.displayName || competitors[1]?.team?.shortDisplayName || competitors[1]?.team?.name;
+        if (!teamA || !teamB) return;
+
+        spreadLookup[createMatchupKey(teamA, teamB)] = {
+          favoredTeam: competition?.odds?.[0]?.homeTeamOdds?.favorite
+            ? normalizeTeamName(competitors.find(competitor => competitor?.homeAway === 'home')?.team?.displayName || competitors[0]?.team?.displayName)
+            : competition?.odds?.[0]?.awayTeamOdds?.favorite
+              ? normalizeTeamName(competitors.find(competitor => competitor?.homeAway === 'away')?.team?.displayName || competitors[1]?.team?.displayName)
+              : normalizeTeamName(competitors[0]?.team?.displayName),
+          spread: favoriteSpread
+        };
+      });
+
+      return spreadLookup;
+    }
+
+    function getRound32Spread(teamAName, teamBName, spreadLookup) {
+      const spreadEntry = spreadLookup[createMatchupKey(teamAName, teamBName)];
+      if (!spreadEntry) return 0;
+      return normalizeTeamName(teamAName) === spreadEntry.favoredTeam
+        ? spreadEntry.spread
+        : spreadEntry.spread * -1;
+    }
+
+    function getSeedMatchWinner(regionSeedMap, seedOptions) {
+      return seedOptions
+        .map(seed => regionSeedMap.get(seed))
+        .find(Boolean) || null;
+    }
+
+    function buildRound32Matchups(final32Teams, recentEvents) {
+      const spreadLookup = buildRound32SpreadLookup(recentEvents);
+
+      const matchups = regions.flatMap(region => {
+        const regionTeams = final32Teams.filter(team => team.region === region);
+        const regionSeedMap = new Map(regionTeams.map(team => [team.seed, team]));
+
+        return ROUND32_SEED_PATHS.map(seedPath => {
+          const teamA = getSeedMatchWinner(regionSeedMap, seedPath[0]);
+          const teamB = getSeedMatchWinner(regionSeedMap, seedPath[1]);
+          if (!teamA || !teamB) return null;
+
+          return {
+            region,
+            teamA: { id: teamA.id, seed: teamA.seed, name: teamA.name },
+            teamB: { id: teamB.id, seed: teamB.seed, name: teamB.name },
+            spread: getRound32Spread(teamA.name, teamB.name, spreadLookup)
+          };
+        }).filter(Boolean);
+      });
+
+      if (matchups.length !== 16) {
+        console.error('Final 32 extraction failed');
+      }
+
+      return matchups;
+    }
+
+    function remapAssignedTeamsToFinal32() {
+      const final32ByName = new Map(state.final32Teams.map(team => [normalizeTeamName(team.name), team]));
+
+      state.players.forEach(player => {
+        player.teamNames = player.teamNames.map(teamName => {
+          const mappedTeam = final32ByName.get(normalizeTeamName(teamName));
+          return mappedTeam?.name || teamName;
+        });
+      });
+    }
+
+    async function syncTournamentField() {
+      const recentEvents = await fetchRecentTournamentEvents();
+      const final32Entries = extractFinal32TeamEntries(recentEvents);
+      if (final32Entries.length !== 32) return false;
+
+      const round32Matchups = buildRound32Matchups(final32Entries, recentEvents);
+      if (round32Matchups.length !== 16) return false;
+
+      state.final32Teams = final32Entries.map(team => ({ id: team.id, name: team.name }));
+      state.rounds.round32 = createInitialGames(round32Matchups);
+      buildLaterRounds();
+      remapAssignedTeamsToFinal32();
+      propagateBracket();
+
+      return true;
     }
 
     function resetScores() {
@@ -862,6 +1098,7 @@
 
     function getKnownTeamNames() {
       return Array.from(new Set([
+        ...state.final32Teams.map(team => team.name).filter(Boolean),
         ...initialMatchups.flatMap(matchup => [matchup.teamA?.name, matchup.teamB?.name]).filter(Boolean),
         ...getAllGames().flatMap(game => [game.teamA?.name, game.teamB?.name]).filter(Boolean)
       ]));
@@ -1333,7 +1570,36 @@
       return state.players.filter(p => p.teamNames.includes(teamName));
     }
 
+    function isTeamInFinal32(teamName) {
+      const normalizedName = normalizeTeamName(teamName);
+      return state.final32Teams.some(team => normalizeTeamName(team.name) === normalizedName);
+    }
+
+    function getPlayerAssignedTeams(player) {
+      return player.teamNames.map(teamName => {
+        const mappedTeam = state.final32Teams.find(team => normalizeTeamName(team.name) === normalizeTeamName(teamName));
+        const resolvedName = mappedTeam?.name || teamName;
+        return {
+          id: mappedTeam?.id || canonicalizeTeamName(resolvedName),
+          name: resolvedName,
+          isAlive: teamStillAliveForPlayer(resolvedName, player.id)
+        };
+      });
+    }
+
+    function getTeamsAliveByEntrant() {
+      return state.players.map(player => ({
+        entrantId: player.id,
+        entrantName: player.name,
+        aliveTeams: getPlayerAssignedTeams(player).filter(team => team.isAlive).length
+      }));
+    }
+
     function teamStillAliveForPlayer(teamName, playerId) {
+      if (!isTeamInFinal32(teamName)) {
+        return false;
+      }
+
       const rounds = ['round32', 'sweet16', 'elite8', 'final4', 'championship'];
       for (const round of rounds) {
         for (const game of state.rounds[round]) {
@@ -1350,7 +1616,7 @@
     }
 
     function aliveCount(player) {
-      return player.teamNames.filter(t => teamStillAliveForPlayer(t, player.id)).length;
+      return getPlayerAssignedTeams(player).filter(team => team.isAlive).length;
     }
 
     function computeResult(game) {
@@ -1518,8 +1784,8 @@
                 </td>
                 <td>
                   <div class="team-chips">
-                    ${player.teamNames.length ? player.teamNames.map(team => `
-                      <span class="chip ${teamStillAliveForPlayer(team, player.id) ? 'alive' : 'dead'}">${escapeHtml(team)}</span>
+                    ${player.teamNames.length ? getPlayerAssignedTeams(player).map(team => `
+                      <span class="chip ${team.isAlive ? 'alive' : 'dead'}">${escapeHtml(team.name)}</span>
                     `).join('') : '<span class="muted small">No teams assigned yet</span>'}
                   </div>
                 </td>
@@ -1532,7 +1798,8 @@
     }
 
     function renderLeaderboard() {
-      const sorted = [...state.players].sort((a,b) => aliveCount(b) - aliveCount(a));
+      const aliveByEntrant = getTeamsAliveByEntrant();
+      const sorted = [...aliveByEntrant].sort((a, b) => b.aliveTeams - a.aliveTeams);
       const el = document.getElementById('leaderboardTable');
       el.innerHTML = `
         <table>
@@ -1547,8 +1814,8 @@
             ${sorted.map((player, idx) => `
               <tr>
                 <td>${idx + 1}</td>
-                <td>${escapeHtml(player.name)}</td>
-                <td>${aliveCount(player)}</td>
+                <td>${escapeHtml(player.entrantName)}</td>
+                <td>${player.aliveTeams}</td>
               </tr>
             `).join('')}
           </tbody>

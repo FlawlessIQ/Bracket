@@ -553,82 +553,764 @@
         display: none;
       }
     }
+
+    :root {
+      --bg: #f4efe6;
+      --panel: rgba(255, 251, 244, 0.92);
+      --panel-2: #fffdfa;
+      --border: rgba(22, 35, 59, 0.1);
+      --text: #16233b;
+      --muted: #67758b;
+      --green: #1c8c5b;
+      --red: #ba5b5b;
+      --gold: #f18b2a;
+      --blue: #1b4a8f;
+    }
+
+    body {
+      font-family: 'Avenir Next', 'Trebuchet MS', sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(18, 74, 150, 0.14), transparent 28%),
+        radial-gradient(circle at top right, rgba(241, 139, 42, 0.18), transparent 24%),
+        linear-gradient(180deg, #f7f2e8 0%, #eef3fb 48%, #f3efe7 100%);
+      color: var(--text);
+    }
+
+    .wrap {
+      max-width: 1600px;
+      padding: 22px 18px 72px;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      box-shadow: 0 18px 45px rgba(20, 35, 59, 0.08);
+      backdrop-filter: blur(14px);
+    }
+
+    .hero-shell {
+      display: grid;
+      grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.95fr);
+      gap: 18px;
+      margin-bottom: 18px;
+      padding: 20px;
+      background:
+        linear-gradient(135deg, rgba(13, 39, 79, 0.96), rgba(25, 83, 158, 0.92)),
+        linear-gradient(180deg, rgba(255,255,255,0.05), transparent);
+      color: #f7fbff;
+      border-radius: 28px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero-shell::after {
+      content: '';
+      position: absolute;
+      inset: auto -80px -60px auto;
+      width: 220px;
+      height: 220px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(241,139,42,0.3), transparent 62%);
+      pointer-events: none;
+    }
+
+    .eyebrow {
+      margin: 0 0 10px;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: rgba(244, 248, 255, 0.72);
+    }
+
+    .hero-shell h1 {
+      font-size: clamp(34px, 5vw, 58px);
+      line-height: 0.94;
+      margin-bottom: 12px;
+      letter-spacing: -0.04em;
+    }
+
+    .hero-copy p {
+      max-width: 760px;
+      color: rgba(242, 247, 255, 0.82);
+      margin-bottom: 0;
+      font-size: 16px;
+    }
+
+    .hero-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .hero-pill,
+    .live-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.16);
+      background: rgba(255,255,255,0.1);
+      color: #f4f8ff;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .hero-actions {
+      display: grid;
+      gap: 12px;
+      align-content: start;
+    }
+
+    .hero-actions .actions {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    button {
+      border-radius: 16px;
+      padding: 12px 14px;
+      font-weight: 800;
+      letter-spacing: 0.01em;
+      background: linear-gradient(180deg, #215cb6, #163f79);
+      box-shadow: 0 10px 18px rgba(15, 39, 78, 0.18);
+    }
+
+    button.secondary {
+      background: linear-gradient(180deg, #f4f7fc, #dfe8f6);
+      color: #173159;
+      border: 1px solid rgba(22, 35, 59, 0.08);
+      box-shadow: none;
+    }
+
+    button.warning {
+      background: linear-gradient(180deg, #d46b6b, #b74848);
+    }
+
+    .dashboard-shell {
+      display: grid;
+      grid-template-columns: 320px minmax(0, 1fr);
+      gap: 18px;
+      align-items: start;
+    }
+
+    .control-rail {
+      display: grid;
+      gap: 18px;
+      position: sticky;
+      top: 18px;
+    }
+
+    .rail-panel h3,
+    .section-title {
+      margin-bottom: 8px;
+      font-size: 22px;
+      letter-spacing: -0.03em;
+    }
+
+    .rail-note {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .overview-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+
+    .overview-card {
+      padding: 16px 18px;
+      border-radius: 22px;
+      background: rgba(255,255,255,0.84);
+      border: 1px solid rgba(22,35,59,0.07);
+      box-shadow: 0 14px 30px rgba(20,35,59,0.06);
+    }
+
+    .overview-card span {
+      display: block;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: #6a7690;
+      margin-bottom: 12px;
+    }
+
+    .overview-card strong {
+      display: block;
+      font-size: clamp(24px, 2vw, 34px);
+      line-height: 1;
+      letter-spacing: -0.04em;
+    }
+
+    .content-shell {
+      display: grid;
+      gap: 18px;
+    }
+
+    .player-list {
+      display: grid;
+      gap: 12px;
+    }
+
+    .player-row {
+      grid-template-columns: 1fr;
+      gap: 8px;
+      padding: 12px;
+      border-radius: 18px;
+      background: rgba(22, 74, 143, 0.06);
+      border: 1px solid rgba(22, 74, 143, 0.08);
+    }
+
+    .player-row label {
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: #5e6d86;
+    }
+
+    input, select {
+      background: rgba(255,255,255,0.9);
+      color: var(--text);
+      border: 1px solid rgba(22,35,59,0.1);
+      border-radius: 14px;
+      padding: 10px 12px;
+    }
+
+    .section-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+
+    .section-head p {
+      margin-bottom: 0;
+      color: var(--muted);
+    }
+
+    .highlight-chip {
+      padding: 10px 14px;
+      border-radius: 999px;
+      background: rgba(22, 74, 143, 0.08);
+      border: 1px solid rgba(22, 74, 143, 0.1);
+      font-size: 12px;
+      font-weight: 700;
+      color: #173159;
+    }
+
+    .entrant-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 14px;
+    }
+
+    .entrant-card {
+      padding: 16px;
+      border-radius: 22px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.92), rgba(243,247,252,0.88));
+      border: 1px solid rgba(22,35,59,0.08);
+      display: grid;
+      gap: 12px;
+      box-shadow: 0 14px 30px rgba(20,35,59,0.05);
+    }
+
+    .entrant-card.is-active {
+      border-color: rgba(241,139,42,0.65);
+      box-shadow: 0 0 0 2px rgba(241,139,42,0.18), 0 16px 34px rgba(20,35,59,0.08);
+    }
+
+    .entrant-card-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+    }
+
+    .entrant-card-name {
+      font-size: 18px;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+    }
+
+    .entrant-card-rank {
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: #6a7690;
+    }
+
+    .entrant-card-stats {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      font-size: 13px;
+      color: #4c5b73;
+    }
+
+    .entrant-card-track {
+      height: 8px;
+      border-radius: 999px;
+      background: rgba(22,35,59,0.08);
+      overflow: hidden;
+    }
+
+    .entrant-card-track span {
+      display: block;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #1f9360, #59c78f);
+    }
+
+    .team-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 0;
+    }
+
+    .chip {
+      padding: 8px 10px;
+      border-radius: 999px;
+      background: #edf3fc;
+      color: #173159;
+      font-size: 12px;
+      font-weight: 700;
+      border: 1px solid rgba(22, 74, 143, 0.12);
+    }
+
+    .chip.alive {
+      background: rgba(28, 140, 91, 0.1);
+      border-color: rgba(28, 140, 91, 0.25);
+      color: #10623f;
+    }
+
+    .chip.dead {
+      background: rgba(186, 91, 91, 0.1);
+      border-color: rgba(186, 91, 91, 0.24);
+      color: #8c3e3e;
+    }
+
+    .chip.player-chip.active {
+      outline: 2px solid rgba(241,139,42,0.5);
+    }
+
+    .leaderboard-stack {
+      display: grid;
+      gap: 10px;
+    }
+
+    .leaderboard-row {
+      display: grid;
+      grid-template-columns: 52px 1fr auto;
+      gap: 12px;
+      align-items: center;
+      padding: 14px 16px;
+      border-radius: 18px;
+      background: rgba(255,255,255,0.78);
+      border: 1px solid rgba(22,35,59,0.06);
+    }
+
+    .leaderboard-rank {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(180deg, #133b71, #1f67bf);
+      color: white;
+      font-weight: 800;
+    }
+
+    .leaderboard-name {
+      font-size: 16px;
+      font-weight: 800;
+    }
+
+    .leaderboard-meta {
+      color: #6a7690;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+    }
+
+    .leaderboard-score {
+      font-size: 24px;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      color: #163f79;
+    }
+
+    .content-split {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 320px;
+      gap: 18px;
+    }
+
+    .note-stack {
+      display: grid;
+      gap: 12px;
+    }
+
+    .note-block {
+      padding: 14px 16px;
+      border-radius: 18px;
+      background: rgba(22,74,143,0.06);
+      border: 1px solid rgba(22,74,143,0.08);
+    }
+
+    .note-block strong {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 13px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #173159;
+    }
+
+    .status-banner {
+      padding: 14px 16px;
+      border-radius: 18px;
+      background: rgba(241,139,42,0.12);
+      border: 1px solid rgba(241,139,42,0.24);
+      color: #6f451c;
+      margin-bottom: 18px;
+      font-size: 14px;
+    }
+
+    .bracket-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+      margin-top: 0;
+    }
+
+    .region-stage {
+      border-radius: 24px;
+      padding: 16px;
+      background: rgba(255,255,255,0.72);
+      border: 1px solid rgba(22,35,59,0.07);
+      display: grid;
+      gap: 14px;
+    }
+
+    .region-stage-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: end;
+      flex-wrap: wrap;
+    }
+
+    .region-stage-head h3 {
+      margin-bottom: 0;
+      font-size: 26px;
+      letter-spacing: -0.04em;
+    }
+
+    .region-kicker {
+      display: inline-block;
+      margin-bottom: 6px;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: #6a7690;
+    }
+
+    .region-stage-columns {
+      display: grid;
+      grid-template-columns: 1.25fr 1fr 0.9fr;
+      gap: 14px;
+      align-items: start;
+    }
+
+    .stage-column {
+      display: grid;
+      gap: 10px;
+      align-content: start;
+    }
+
+    .stage-column-label {
+      padding: 8px 10px;
+      border-radius: 999px;
+      background: rgba(22,74,143,0.08);
+      border: 1px solid rgba(22,74,143,0.1);
+      color: #173159;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .game-card {
+      background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(244,248,252,0.92));
+      border: 1px solid rgba(22,35,59,0.08);
+      border-radius: 20px;
+      padding: 14px;
+      box-shadow: 0 12px 28px rgba(20,35,59,0.05);
+    }
+
+    .game-card.highlight {
+      box-shadow: 0 0 0 2px rgba(241,139,42,0.18), 0 14px 30px rgba(20,35,59,0.08);
+      border-color: rgba(241,139,42,0.4);
+    }
+
+    .round-label {
+      background: #143d77;
+      color: #eff6ff;
+      font-size: 10px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      padding: 7px 10px;
+      margin-bottom: 12px;
+    }
+
+    .matchup-line {
+      grid-template-columns: 1fr 74px 42px;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+
+    .team-line {
+      padding: 8px 10px;
+      border-radius: 16px;
+    }
+
+    .team-line.winner {
+      background: rgba(22,74,143,0.08);
+      border-color: rgba(22,74,143,0.14);
+    }
+
+    .team-name {
+      font-size: 15px;
+      font-weight: 800;
+      color: #10213f;
+    }
+
+    .team-meta,
+    .small,
+    .muted {
+      color: #6c7890;
+    }
+
+    .ownership .owner {
+      background: rgba(22,74,143,0.08);
+      color: #173159;
+      font-weight: 700;
+    }
+
+    .ownership .owner.active-owner {
+      background: rgba(241,139,42,0.2);
+      color: #8b4f12;
+    }
+
+    .finals-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+      margin-top: 0;
+    }
+
+    .final-stage-card h3 {
+      margin-bottom: 10px;
+      font-size: 20px;
+      letter-spacing: -0.03em;
+    }
+
+    .live-bracket-panel {
+      margin-top: 0;
+    }
+
+    .live-bracket-board {
+      background: linear-gradient(180deg, #0c1a35, #10264d);
+      border: 1px solid rgba(22,74,143,0.24);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
+    }
+
+    @media (max-width: 1260px) {
+      .dashboard-shell,
+      .content-split,
+      .overview-grid,
+      .hero-shell,
+      .hero-actions .actions,
+      .bracket-grid,
+      .finals-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .control-rail {
+        position: static;
+      }
+
+      .region-stage-columns {
+        grid-template-columns: 1fr;
+      }
+    }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <div class="topbar">
-      <div class="title-block">
-        <h1>March Madness Survivor Pool</h1>
-        <p id="appSubtitle">32 teams, 8 entrants, 4 random teams each. Spread survivor until Final Four, then straight winner advances.</p>
-      </div>
-      <div class="actions">
-        <button id="randomizeBtn">Randomize Teams</button>
-        <button id="sampleBtn" class="secondary">Load Sample Bracket</button>
-        <button id="resetScoresBtn" class="secondary">Reset Scores</button>
-        <button id="enableLiveBtn" class="secondary">Enable Live Scores</button>
-        <button id="disableLiveBtn" class="secondary">Disable Live Scores</button>
-        <button id="manualSyncBtn" class="secondary">Sync Now</button>
-        <span id="liveIndicator" class="live-indicator off">Live Scores: OFF</span>
-        <button id="resetAllBtn" class="warning">Reset Everything</button>
-      </div>
-    </div>
-
-    <div class="grid setup-grid">
-      <div class="panel">
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px;">
-          <h3 style="margin-bottom:0;">Entrants</h3>
-          <div style="display:flex;align-items:center;gap:8px;">
-            <label for="playerCountInput" class="small muted">Count</label>
-            <input id="playerCountInput" type="number" min="2" max="32" step="1" value="8" style="width:88px;" />
-          </div>
+    <section class="hero-shell panel">
+      <div class="hero-copy">
+        <p class="eyebrow">2026 Survivor Pool</p>
+        <h1>March Madness<br />Survivor Pool</h1>
+        <p id="appSubtitle">Official Round of 32 field locked from your 2026 bracket sheet. Assign entrants, track survivors, and follow the path to the title.</p>
+        <div class="hero-meta">
+          <span class="hero-pill">Official 2026 Second-Round Entries Hardcoded</span>
+          <span class="hero-pill">Designed for one shared public link</span>
+          <span id="liveIndicator" class="live-indicator off">Live Scores: OFF</span>
         </div>
-        <div class="player-list" id="playerInputs"></div>
-        <p class="small muted" style="margin-top:12px;">Tip: click a player chip anywhere on the page to highlight their teams.</p>
       </div>
+      <div class="hero-actions">
+        <div class="actions">
+          <button id="randomizeBtn">Randomize Teams</button>
+          <button id="sampleBtn" class="secondary">Load Sample Bracket</button>
+          <button id="resetScoresBtn" class="secondary">Reset Scores</button>
+          <button id="manualSyncBtn" class="secondary">Sync Now</button>
+          <button id="enableLiveBtn" class="secondary">Enable Live Scores</button>
+          <button id="disableLiveBtn" class="secondary">Disable Live Scores</button>
+          <button id="resetAllBtn" class="warning">Reset Everything</button>
+        </div>
+      </div>
+    </section>
 
-      <div class="grid" style="gap:16px;">
-        <div class="panel assignments">
-          <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+    <section class="overview-grid">
+      <div class="overview-card">
+        <span>Entrants</span>
+        <strong id="entrantCountStat">8</strong>
+      </div>
+      <div class="overview-card">
+        <span>Teams In Pool</span>
+        <strong id="teamPoolStat">32</strong>
+      </div>
+      <div class="overview-card">
+        <span>Total Alive</span>
+        <strong id="alivePoolStat">32</strong>
+      </div>
+      <div class="overview-card">
+        <span>Highlighted Entrant</span>
+        <strong id="activePlayerLabelHero">None</strong>
+      </div>
+    </section>
+
+    <div class="dashboard-shell">
+      <aside class="control-rail">
+        <section class="panel rail-panel">
+          <div class="section-head">
             <div>
-              <h3 style="margin-bottom:6px;">Assignments</h3>
+              <h3 class="section-title">Entrants</h3>
+              <p class="rail-note">Set the pool size, rename entrants, then randomize assignments.</p>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <label for="playerCountInput" class="small muted">Count</label>
+              <input id="playerCountInput" type="number" min="2" max="32" step="1" value="8" style="width:88px;" />
+            </div>
+          </div>
+          <div class="player-list" id="playerInputs"></div>
+        </section>
+
+        <section class="panel rail-panel">
+          <h3 class="section-title">Pool Rules</h3>
+          <div class="note-stack">
+            <div class="note-block">
+              <strong>Rounds Through Elite 8</strong>
+              Teams survive only if they cover the spread in that round.
+            </div>
+            <div class="note-block">
+              <strong>Final Four And Title</strong>
+              Straight-up winners advance. No spread is used.
+            </div>
+            <div class="note-block">
+              <strong>Highlight Mode</strong>
+              Click any entrant card to spotlight their teams across the bracket.
+            </div>
+          </div>
+        </section>
+      </aside>
+
+      <main class="content-shell">
+        <section class="panel assignments">
+          <div class="section-head">
+            <div>
+              <h2 class="section-title">Entrant Assignments</h2>
               <p id="assignmentSummary" class="muted small">Each entrant gets 4 teams from the Round of 32 field.</p>
             </div>
-            <div>
-              <span class="chip">Active Highlight: <strong id="activePlayerLabel">None</strong></span>
-            </div>
+            <span class="highlight-chip">Active Highlight: <strong id="activePlayerLabel">None</strong></span>
           </div>
           <div id="assignmentsTable"></div>
-        </div>
+        </section>
 
-        <div class="panel leaderboard">
-          <h3>Leaderboard</h3>
-          <div id="leaderboardTable"></div>
-        </div>
-      </div>
-    </div>
+        <section class="content-split">
+          <div class="panel leaderboard">
+            <div class="section-head">
+              <div>
+                <h2 class="section-title">Leaderboard</h2>
+                <p class="muted small">Live count of how many teams each entrant still has alive.</p>
+              </div>
+            </div>
+            <div id="leaderboardTable"></div>
+          </div>
+          <div class="panel rail-panel">
+            <h3 class="section-title">Field Notes</h3>
+            <div class="note-stack">
+              <div class="note-block">
+                <strong>Bracket Source</strong>
+                The Round of 32 field is hardcoded from the 2026 bracket sheet you provided so anyone opening the link sees the same field.
+              </div>
+              <div class="note-block">
+                <strong>Live Sync</strong>
+                ESPN sync still updates current scores for matching games without changing your hardcoded field.
+              </div>
+            </div>
+          </div>
+        </section>
 
-    <div class="panel">
-      <div class="status-banner">
-        <strong>Rules:</strong> Through the Elite 8, a player keeps a team only if that team covers the spread in that round. In the Final Four and Championship, the spread is ignored and only the straight-up winner advances.
-      </div>
+        <section class="panel">
+          <div class="status-banner">
+            <strong>Visual Focus:</strong> The pool is now organized as entrant cards first, then a clear region-by-region tournament path so it is easier to see who owns what and where each team sits in the bracket.
+          </div>
+          <div class="section-head">
+            <div>
+              <h2 class="section-title">Tournament Path</h2>
+              <p class="muted small">Official Round of 32 field from your bracket sheet, then survivor progression through the title game.</p>
+            </div>
+          </div>
+          <div class="bracket-grid" id="regionsGrid"></div>
 
-      <h2 style="margin-bottom:12px;">Round of 32 Regions</h2>
-      <div class="bracket-grid" id="regionsGrid"></div>
+          <div class="section-head" style="margin-top:20px;">
+            <div>
+              <h2 class="section-title">Final Stages</h2>
+              <p class="muted small">Final Four and national championship path.</p>
+            </div>
+          </div>
+          <div class="finals-grid" id="finalsGrid"></div>
+        </section>
 
-      <h2 style="margin:22px 0 12px;">Final Rounds</h2>
-      <div class="finals-grid" id="finalsGrid"></div>
-    </div>
-
-    <div class="panel live-bracket-panel">
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
-        <div>
-          <h2 style="margin-bottom:6px;">Live Tournament Bracket View</h2>
-          <p class="muted small" style="margin-bottom:0;">Read-only view of the current ESPN tournament slate with live scores.</p>
-        </div>
-        <span id="liveBracketSummary" class="chip">Waiting for sync</span>
-      </div>
-      <div id="liveBracketGrid" class="live-bracket-board"></div>
+        <section class="panel live-bracket-panel">
+          <div class="section-head">
+            <div>
+              <h2 class="section-title">Live Tournament View</h2>
+              <p class="muted small">Read-only ESPN bracket context for the current tournament slate.</p>
+            </div>
+            <span id="liveBracketSummary" class="chip">Waiting for sync</span>
+          </div>
+          <div id="liveBracketGrid" class="live-bracket-board"></div>
+        </section>
+      </main>
     </div>
   </div>
 
@@ -676,25 +1358,25 @@
     ];
 
     const initialMatchups = [
-      { region: 'East', teamA: { seed: 5, name: "St. John's" }, teamB: { seed: 12, name: 'Northern Iowa' }, spread: -5.5 },
-      { region: 'East', teamA: { seed: 4, name: 'Kansas' }, teamB: { seed: 13, name: 'California Baptist' }, spread: -8.5 },
-      { region: 'East', teamA: { seed: 7, name: 'UCLA' }, teamB: { seed: 10, name: 'UCF' }, spread: -2.5 },
-      { region: 'East', teamA: { seed: 2, name: 'UConn' }, teamB: { seed: 15, name: 'Furman' }, spread: -12.5 },
+      { region: 'East', teamA: { seed: 1, name: 'Duke' }, teamB: { seed: 9, name: 'TCU' }, spread: 0 },
+      { region: 'East', teamA: { seed: 5, name: "St. John's" }, teamB: { seed: 4, name: 'Kansas' }, spread: 0 },
+      { region: 'East', teamA: { seed: 6, name: 'Louisville' }, teamB: { seed: 3, name: 'Michigan State' }, spread: 0 },
+      { region: 'East', teamA: { seed: 7, name: 'UCLA' }, teamB: { seed: 2, name: 'UConn' }, spread: 0 },
 
-      { region: 'West', teamA: { seed: 1, name: 'Arizona' }, teamB: { seed: 16, name: 'Long Island University' }, spread: -18.5 },
-      { region: 'West', teamA: { seed: 8, name: 'Villanova' }, teamB: { seed: 9, name: 'Utah State' }, spread: -1.5 },
-      { region: 'West', teamA: { seed: 7, name: 'Miami' }, teamB: { seed: 10, name: 'Missouri' }, spread: -1.5 },
-      { region: 'West', teamA: { seed: 2, name: 'Purdue' }, teamB: { seed: 15, name: 'Queens University' }, spread: -14.5 },
+      { region: 'West', teamA: { seed: 1, name: 'Arizona' }, teamB: { seed: 9, name: 'Utah State' }, spread: 0 },
+      { region: 'West', teamA: { seed: 12, name: 'High Point' }, teamB: { seed: 4, name: 'Arkansas' }, spread: 0 },
+      { region: 'West', teamA: { seed: 11, name: 'Texas' }, teamB: { seed: 3, name: 'Gonzaga' }, spread: 0 },
+      { region: 'West', teamA: { seed: 7, name: 'Miami' }, teamB: { seed: 2, name: 'Purdue' }, spread: 0 },
 
-      { region: 'South', teamA: { seed: 1, name: 'Florida' }, teamB: { seed: 16, name: 'Prairie View A&M' }, spread: -20.5 },
-      { region: 'South', teamA: { seed: 8, name: 'Clemson' }, teamB: { seed: 9, name: 'Iowa' }, spread: -1.5 },
-      { region: 'South', teamA: { seed: 5, name: 'Texas Tech' }, teamB: { seed: 12, name: 'Akron' }, spread: -4.5 },
-      { region: 'South', teamA: { seed: 4, name: 'Alabama' }, teamB: { seed: 13, name: 'Hofstra' }, spread: -9.5 },
+      { region: 'South', teamA: { seed: 1, name: 'Florida' }, teamB: { seed: 9, name: 'Iowa' }, spread: 0 },
+      { region: 'South', teamA: { seed: 5, name: 'Vanderbilt' }, teamB: { seed: 4, name: 'Nebraska' }, spread: 0 },
+      { region: 'South', teamA: { seed: 11, name: 'VCU' }, teamB: { seed: 3, name: 'Illinois' }, spread: 0 },
+      { region: 'South', teamA: { seed: 10, name: 'Texas A&M' }, teamB: { seed: 2, name: 'Houston' }, spread: 0 },
 
-      { region: 'Midwest', teamA: { seed: 6, name: 'Tennessee' }, teamB: { seed: 11, name: 'Miami (OH)' }, spread: -4.5 },
-      { region: 'Midwest', teamA: { seed: 3, name: 'Virginia' }, teamB: { seed: 14, name: 'Wright State' }, spread: -10.5 },
-      { region: 'Midwest', teamA: { seed: 7, name: 'Kentucky' }, teamB: { seed: 10, name: 'Santa Clara' }, spread: -3.5 },
-      { region: 'Midwest', teamA: { seed: 2, name: 'Iowa State' }, teamB: { seed: 15, name: 'Tennessee State' }, spread: -13.5 }
+      { region: 'Midwest', teamA: { seed: 1, name: 'Michigan' }, teamB: { seed: 9, name: 'Georgia' }, spread: 0 },
+      { region: 'Midwest', teamA: { seed: 5, name: 'Texas Tech' }, teamB: { seed: 4, name: 'Alabama' }, spread: 0 },
+      { region: 'Midwest', teamA: { seed: 6, name: 'Tennessee' }, teamB: { seed: 3, name: 'Virginia' }, spread: 0 },
+      { region: 'Midwest', teamA: { seed: 7, name: 'Kentucky' }, teamB: { seed: 2, name: 'Iowa State' }, spread: 0 }
     ];
 
     const regions = ['East', 'West', 'South', 'Midwest'];
@@ -829,15 +1511,17 @@
 
     function resetAll() {
       state.players = buildPlayers(state.playerCount);
-      state.final32Teams = [];
+      state.final32Teams = initialMatchups.flatMap(matchup => [matchup.teamA, matchup.teamB]).map(team => ({
+        id: canonicalizeTeamName(team.name),
+        name: team.name
+      }));
       state.activePlayerId = null;
       state.liveBracketGames = [];
       state.liveBracketLastUpdated = '';
-      state.rounds.round32 = [];
+      state.rounds.round32 = createInitialGames(initialMatchups);
       buildLaterRounds();
-      syncTournamentField().finally(() => {
-        renderAll();
-      });
+      clearRecentUpdates();
+      randomizeTeams();
     }
 
     function formatEspnDate(date) {
@@ -1768,33 +2452,42 @@
     function renderAssignments() {
       const el = document.getElementById('assignmentsTable');
       document.getElementById('assignmentSummary').textContent = `Each entrant gets ${getTeamsPerPlayerText()} from the Round of 32 field.`;
+      const leaderboardOrder = [...getTeamsAliveByEntrant()].sort((a, b) => b.aliveTeams - a.aliveTeams);
+      const rankByEntrantId = new Map(leaderboardOrder.map((entry, index) => [entry.entrantId, index + 1]));
+
       el.innerHTML = `
-        <table>
-          <thead>
-            <tr>
-              <th>Entrant</th>
-              <th>Assigned Teams</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${state.players.map(player => `
-              <tr>
-                <td>
-                  <span class="chip player-chip ${state.activePlayerId === player.id ? 'active' : ''}" onclick="toggleActivePlayer(${player.id})">${escapeHtml(player.name)}</span>
-                </td>
-                <td>
-                  <div class="team-chips">
-                    ${player.teamNames.length ? getPlayerAssignedTeams(player).map(team => `
-                      <span class="chip ${team.isAlive ? 'alive' : 'dead'}">${escapeHtml(team.name)}</span>
-                    `).join('') : '<span class="muted small">No teams assigned yet</span>'}
+        <div class="entrant-grid">
+          ${state.players.map(player => {
+            const assignedTeams = getPlayerAssignedTeams(player);
+            const aliveTeams = assignedTeams.filter(team => team.isAlive).length;
+            const progress = assignedTeams.length ? Math.round((aliveTeams / assignedTeams.length) * 100) : 0;
+            return `
+              <article class="entrant-card ${state.activePlayerId === player.id ? 'is-active' : ''}">
+                <div class="entrant-card-head" onclick="toggleActivePlayer(${player.id})">
+                  <div>
+                    <div class="entrant-card-rank">Rank ${rankByEntrantId.get(player.id) || '-'}</div>
+                    <div class="entrant-card-name">${escapeHtml(player.name)}</div>
                   </div>
-                </td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
+                  <span class="chip ${aliveTeams ? 'alive' : 'dead'}">${aliveTeams} Alive</span>
+                </div>
+                <div class="entrant-card-stats">
+                  <span>${assignedTeams.length} teams assigned</span>
+                  <span>${progress}% alive</span>
+                </div>
+                <div class="entrant-card-track"><span style="width:${progress}%;"></span></div>
+                <div class="team-chips">
+                  ${assignedTeams.length ? assignedTeams.map(team => `
+                    <span class="chip ${team.isAlive ? 'alive' : 'dead'}">${escapeHtml(team.name)}</span>
+                  `).join('') : '<span class="muted small">No teams assigned yet</span>'}
+                </div>
+              </article>
+            `;
+          }).join('')}
+        </div>
       `;
-      document.getElementById('activePlayerLabel').textContent = state.activePlayerId ? getPlayerById(state.activePlayerId)?.name || 'None' : 'None';
+      const activeName = state.activePlayerId ? getPlayerById(state.activePlayerId)?.name || 'None' : 'None';
+      document.getElementById('activePlayerLabel').textContent = activeName;
+      document.getElementById('activePlayerLabelHero').textContent = activeName;
     }
 
     function renderLeaderboard() {
@@ -1802,25 +2495,28 @@
       const sorted = [...aliveByEntrant].sort((a, b) => b.aliveTeams - a.aliveTeams);
       const el = document.getElementById('leaderboardTable');
       el.innerHTML = `
-        <table>
-          <thead>
-            <tr>
-              <th>Rank</th>
-              <th>Entrant</th>
-              <th>Teams Alive</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${sorted.map((player, idx) => `
-              <tr>
-                <td>${idx + 1}</td>
-                <td>${escapeHtml(player.entrantName)}</td>
-                <td>${player.aliveTeams}</td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
+        <div class="leaderboard-stack">
+          ${sorted.map((player, idx) => `
+            <div class="leaderboard-row">
+              <div class="leaderboard-rank">${idx + 1}</div>
+              <div>
+                <div class="leaderboard-name">${escapeHtml(player.entrantName)}</div>
+                <div class="leaderboard-meta">Teams still alive</div>
+              </div>
+              <div class="leaderboard-score">${player.aliveTeams}</div>
+            </div>
+          `).join('')}
+        </div>
       `;
+    }
+
+    function renderOverviewStats() {
+      const totalPoolTeams = state.rounds.round32.flatMap(game => [game.teamA?.name, game.teamB?.name]).filter(Boolean).length;
+      const totalAlive = getTeamsAliveByEntrant().reduce((sum, entrant) => sum + entrant.aliveTeams, 0);
+      document.getElementById('entrantCountStat').textContent = String(state.playerCount);
+      document.getElementById('teamPoolStat').textContent = String(totalPoolTeams || 32);
+      document.getElementById('alivePoolStat').textContent = String(totalAlive);
+      document.getElementById('activePlayerLabelHero').textContent = state.activePlayerId ? getPlayerById(state.activePlayerId)?.name || 'None' : 'None';
     }
 
     function renderNameDependentViews() {
@@ -1892,31 +2588,44 @@
       const el = document.getElementById('regionsGrid');
       const byRegion = regions.map(region => state.rounds.round32.filter(g => g.region === region));
       el.innerHTML = byRegion.map((games, idx) => `
-        <div class="region-col">
-          <h3>${regions[idx]}</h3>
-          ${games.map(g => renderGameCard(g, 'round32', 'Round of 32')).join('')}
-          <div class="panel" style="padding:12px;background:#101834;border-style:dashed;">
-            <h4>Sweet 16 (${regions[idx]})</h4>
-            ${state.rounds.sweet16.filter(g => g.region === regions[idx]).map(g => renderGameCard(g, 'sweet16', 'Sweet 16')).join('')}
-            <h4 style="margin-top:14px;">Elite 8 (${regions[idx]})</h4>
-            ${state.rounds.elite8.filter(g => g.region === regions[idx]).map(g => renderGameCard(g, 'elite8', 'Elite 8')).join('')}
+        <section class="region-stage">
+          <div class="region-stage-head">
+            <div>
+              <span class="region-kicker">${regions[idx]} Region</span>
+              <h3>${regions[idx]}</h3>
+            </div>
+            <p class="muted small">${games.length} live Round of 32 matchups</p>
           </div>
-        </div>
+          <div class="region-stage-columns">
+            <div class="stage-column">
+              <div class="stage-column-label">Round of 32</div>
+              ${games.map(g => renderGameCard(g, 'round32', 'Round of 32')).join('')}
+            </div>
+            <div class="stage-column">
+              <div class="stage-column-label">Sweet 16</div>
+              ${state.rounds.sweet16.filter(g => g.region === regions[idx]).map(g => renderGameCard(g, 'sweet16', 'Sweet 16')).join('')}
+            </div>
+            <div class="stage-column">
+              <div class="stage-column-label">Elite 8</div>
+              ${state.rounds.elite8.filter(g => g.region === regions[idx]).map(g => renderGameCard(g, 'elite8', 'Elite 8')).join('')}
+            </div>
+          </div>
+        </section>
       `).join('');
     }
 
     function renderFinals() {
       const el = document.getElementById('finalsGrid');
       el.innerHTML = `
-        <div>
+        <div class="final-stage-card">
           <h3>Final Four 1</h3>
           ${renderGameCard(state.rounds.final4[0], 'final4', 'Final Four')}
         </div>
-        <div>
+        <div class="final-stage-card">
           <h3>Final Four 2</h3>
           ${renderGameCard(state.rounds.final4[1], 'final4', 'Final Four')}
         </div>
-        <div>
+        <div class="final-stage-card">
           <h3>Championship</h3>
           ${renderGameCard(state.rounds.championship[0], 'championship', 'Championship')}
         </div>
@@ -2093,10 +2802,11 @@
     }
 
     function renderAll() {
-      document.getElementById('appSubtitle').textContent = `32 teams, ${state.playerCount} entrants, ${getTeamsPerPlayerText()}. Spread survivor until Final Four, then straight winner advances.`;
+      document.getElementById('appSubtitle').textContent = `Official 2026 second-round field is locked from your bracket sheet. ${state.playerCount} entrants currently share ${state.rounds.round32.flatMap(game => [game.teamA?.name, game.teamB?.name]).filter(Boolean).length || 32} teams with ${getTeamsPerPlayerText()}.`;
       document.getElementById('playerCountInput').value = String(state.playerCount);
       renderPlayerInputs();
       renderNameDependentViews();
+      renderOverviewStats();
       renderLiveBracketView();
       renderLiveStatus();
     }

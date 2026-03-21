@@ -882,10 +882,66 @@
     }
 
     .team-chips {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
+      display: grid;
+      gap: 10px;
       margin-top: 0;
+    }
+
+    .assignment-slot {
+      display: grid;
+      gap: 6px;
+      padding: 12px;
+      border-radius: 18px;
+      border: 1px solid rgba(22,35,59,0.08);
+      background: rgba(237,243,252,0.7);
+    }
+
+    .assignment-slot.live {
+      background: rgba(28, 140, 91, 0.08);
+      border-color: rgba(28, 140, 91, 0.18);
+    }
+
+    .assignment-slot.gained {
+      background: rgba(27, 92, 181, 0.08);
+      border-color: rgba(27, 92, 181, 0.18);
+    }
+
+    .assignment-slot.lost {
+      background: rgba(186, 91, 91, 0.08);
+      border-color: rgba(186, 91, 91, 0.18);
+    }
+
+    .assignment-slot-label {
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #6a7690;
+    }
+
+    .assignment-slot-team {
+      font-size: 15px;
+      font-weight: 800;
+      color: #173159;
+      line-height: 1.25;
+    }
+
+    .assignment-slot.live .assignment-slot-team {
+      color: #10623f;
+    }
+
+    .assignment-slot.gained .assignment-slot-team {
+      color: #1b4e96;
+    }
+
+    .assignment-slot.lost .assignment-slot-team {
+      color: #8c3e3e;
+    }
+
+    .assignment-slot-meta {
+      font-size: 12px;
+      color: #586884;
+      line-height: 1.35;
     }
 
     .chip {
@@ -2377,6 +2433,45 @@
       return team.currentTeamName;
     }
 
+    function getAssignmentSlotState(team) {
+      const inField = state.final32Teams.some(fieldTeam => teamNamesMatch(fieldTeam.name, team.currentTeamName));
+      if (!inField) {
+        return {
+          tone: 'lost',
+          label: 'Invalid Pick',
+          teamName: team.submittedName,
+          meta: 'Not part of the current Round of 32 field.'
+        };
+      }
+
+      if (team.isAlive && team.inherited) {
+        return {
+          tone: 'gained',
+          label: 'Gained Team',
+          teamName: team.currentTeamName,
+          meta: `Started with ${team.submittedName}.`
+        };
+      }
+
+      if (team.isAlive) {
+        return {
+          tone: 'live',
+          label: 'Live Pick',
+          teamName: team.currentTeamName,
+          meta: `Original pick: ${team.submittedName}.`
+        };
+      }
+
+      return {
+        tone: 'lost',
+        label: 'Lost Team',
+        teamName: team.currentTeamName,
+        meta: team.inherited
+          ? `Started with ${team.submittedName}, later moved to ${team.currentTeamName}.`
+          : `Original pick: ${team.submittedName}.`
+      };
+    }
+
     function playerHasTeam(player, teamName) {
       if (!teamName) return false;
       return getPlayerAssignedTeams(player).some(slot => slot.isAlive && teamNamesMatch(slot.currentTeamName, teamName));
@@ -2563,9 +2658,16 @@
                 </div>
                 <div class="entrant-card-track"><span style="width:${progress}%;"></span></div>
                 <div class="team-chips">
-                  ${assignedTeams.length ? assignedTeams.map(team => `
-                    <span class="chip ${team.isAlive ? 'alive' : 'dead'}">${escapeHtml(formatAssignedTeamLabel(team))}</span>
-                  `).join('') : '<span class="muted small">No teams assigned yet</span>'}
+                  ${assignedTeams.length ? assignedTeams.map(team => {
+                    const slotState = getAssignmentSlotState(team);
+                    return `
+                      <div class="assignment-slot ${slotState.tone}">
+                        <div class="assignment-slot-label">${escapeHtml(slotState.label)}</div>
+                        <div class="assignment-slot-team">${escapeHtml(slotState.teamName)}</div>
+                        <div class="assignment-slot-meta">${escapeHtml(slotState.meta)}</div>
+                      </div>
+                    `;
+                  }).join('') : '<span class="muted small">No teams assigned yet</span>'}
                 </div>
               </article>
             `;

@@ -1321,7 +1321,7 @@
     function setPlayerName(id, value) {
       const player = state.players.find(p => p.id === id);
       if (player) player.name = value || `Player ${id}`;
-      renderAll();
+      renderNameDependentViews();
     }
 
     function getPlayerById(id) {
@@ -1554,6 +1554,13 @@
           </tbody>
         </table>
       `;
+    }
+
+    function renderNameDependentViews() {
+      renderAssignments();
+      renderLeaderboard();
+      renderRegions();
+      renderFinals();
     }
 
     function renderGameCard(game, roundKey, label) {
@@ -1822,10 +1829,7 @@
       document.getElementById('appSubtitle').textContent = `32 teams, ${state.playerCount} entrants, ${getTeamsPerPlayerText()}. Spread survivor until Final Four, then straight winner advances.`;
       document.getElementById('playerCountInput').value = String(state.playerCount);
       renderPlayerInputs();
-      renderAssignments();
-      renderLeaderboard();
-      renderRegions();
-      renderFinals();
+      renderNameDependentViews();
       renderLiveBracketView();
       renderLiveStatus();
     }

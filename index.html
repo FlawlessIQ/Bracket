@@ -2617,7 +2617,6 @@
       const team = side === 'A' ? game.teamA : game.teamB;
       const scoreField = side === 'A' ? 'scoreA' : 'scoreB';
       const isWinner = game.winner && game.winner === team?.name;
-      const activeOwnerClass = owners.some(o => o.id === state.activePlayerId) ? 'active-owner' : '';
       return `
         <div class="team-line ${isWinner ? 'winner' : ''}">
           <div class="matchup-line">
@@ -2625,8 +2624,10 @@
               <div class="team-name">${team ? `(${team.seed || ''}) ${escapeHtml(team.name)}` : 'TBD'}</div>
               <div class="team-meta">${!team ? 'Awaiting previous round winner' : owners.length ? `Owned by ${owners.length}` : 'Unassigned'}</div>
             </div>
-            <input type="number" value="${game[scoreField]}" ${!team ? 'disabled' : ''} onchange="setGameField('${roundKey}','${game.id}','${scoreField}', this.value)" />
-            <div class="small muted">${side === 'A' ? 'Fav' : ''}</div>
+            <div style="display:flex; align-items:center; gap:14px;">
+              <span class="chip" style="min-width:64px; text-align:center; justify-content:center; display:inline-flex;">${game[scoreField] === '' ? '-' : escapeHtml(game[scoreField])}</span>
+              <div class="small muted">${side === 'A' ? 'Fav' : ''}</div>
+            </div>
           </div>
           <div class="ownership">
             ${owners.length ? owners.map(owner => `<span class="owner ${owner.id === state.activePlayerId ? 'active-owner' : ''}">${escapeHtml(owner.name)}</span>`).join('') : '<span class="small muted">No entrants own this team</span>'}
@@ -2636,8 +2637,8 @@
     }
 
     function renderResultText(game) {
-      if (game.scoreA === '' || game.scoreB === '') return 'Enter both scores to calculate result.';
-      if (game.winner === 'TIE') return 'Game tied in current entry. Update with final score.';
+      if (game.scoreA === '' || game.scoreB === '') return 'Waiting for live score sync.';
+      if (game.winner === 'TIE') return 'Game is currently tied.';
       if (game.coverTeam === 'PUSH') return 'Spread result is a push. No cover winner recorded.';
       if (game.coverTeam && game.winner && !teamNamesMatch(game.coverTeam, game.winner)) {
         return `${escapeHtml(game.coverTeam)} covered and inherits ${escapeHtml(game.winner)}.`;

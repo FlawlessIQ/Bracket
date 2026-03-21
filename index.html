@@ -1448,6 +1448,7 @@
         spread,
         scoreA: '',
         scoreB: '',
+        gameStatus: 'scheduled',
         winner: null,
         coverTeam: null
       };
@@ -1835,7 +1836,7 @@
       }
     }
 
-    function updateGameFromEspn(teamA, teamB, scoreA, scoreB) {
+    function updateGameFromEspn(teamA, teamB, scoreA, scoreB, gameStatus) {
       const normalizedA = normalizeTeamName(teamA);
       const normalizedB = normalizeTeamName(teamB);
       const game = findGameByTeams(normalizedA, normalizedB);
@@ -1857,6 +1858,7 @@
         game.scoreA = nextScoreB;
         game.scoreB = nextScoreA;
       }
+      game.gameStatus = gameStatus || game.gameStatus || 'scheduled';
 
       propagateBracket();
       return game.id;
@@ -2167,7 +2169,8 @@
               game.awayTeamName,
               game.homeTeamName,
               game.awayScore,
-              game.homeScore
+              game.homeScore,
+              game.gameStatus
             );
             if (updatedId) updatedGameIds.push(updatedId);
           }
@@ -2285,6 +2288,19 @@
         }
 
         if (game.scoreA === '' || game.scoreB === '') {
+          return {
+            id: canonicalizeTeamName(submittedName),
+            submittedName,
+            currentTeamName,
+            displayName: submittedName,
+            isAlive: true,
+            inherited: !teamNamesMatch(submittedName, currentTeamName),
+            inheritedTeamName: !teamNamesMatch(submittedName, currentTeamName) ? currentTeamName : '',
+            eliminatedReason: ''
+          };
+        }
+
+        if (game.gameStatus !== 'final') {
           return {
             id: canonicalizeTeamName(submittedName),
             submittedName,
@@ -2606,7 +2622,7 @@
           <div class="small muted" style="margin-top:8px;">
             <strong>Spread:</strong> ${game.teamA?.name || 'TBD'} ${game.spread > 0 ? '+' : ''}${game.spread}
           </div>
-          <div class="small" style="margin-top:6px; color:#ffecb3;">
+          <div class="small" style="margin-top:6px; color:#5a6785;">
             ${renderResultText(game)}
           </div>
         </div>
@@ -2637,8 +2653,9 @@
     }
 
     function renderResultText(game) {
-      if (game.scoreA === '' || game.scoreB === '') return 'Waiting for live score sync.';
-      if (game.winner === 'TIE') return 'Game is currently tied.';
+      if (game.scoreA === '' || game.scoreB === '' || game.gameStatus === 'scheduled') return 'Waiting for live score sync.';
+      if (game.gameStatus === 'in-progress') return 'Game is live. Pool result will lock when final.';
+      if (game.winner === 'TIE') return 'Game ended tied.';
       if (game.coverTeam === 'PUSH') return 'Spread result is a push. No cover winner recorded.';
       if (game.coverTeam && game.winner && !teamNamesMatch(game.coverTeam, game.winner)) {
         return `${escapeHtml(game.coverTeam)} covered and inherits ${escapeHtml(game.winner)}.`;

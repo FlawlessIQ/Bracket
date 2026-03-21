@@ -2360,6 +2360,11 @@
       return player.teamNames.map(resolveEntrantSlot);
     }
 
+    function playerHasSubmittedTeam(player, teamName) {
+      if (!teamName) return false;
+      return player.teamNames.some(submittedTeam => teamNamesMatch(submittedTeam, teamName));
+    }
+
     function formatAssignedTeamLabel(team) {
       if (!state.final32Teams.some(fieldTeam => teamNamesMatch(fieldTeam.name, team.currentTeamName))) {
         return `Not in field: ${team.submittedName}`;
@@ -2377,8 +2382,11 @@
       return getPlayerAssignedTeams(player).some(slot => slot.isAlive && teamNamesMatch(slot.currentTeamName, teamName));
     }
 
-    function getOwners(teamName) {
+    function getOwners(teamName, roundKey = 'round32') {
       if (!teamName) return [];
+      if (roundKey === 'round32') {
+        return state.players.filter(player => playerHasSubmittedTeam(player, teamName));
+      }
       return state.players.filter(player => playerHasTeam(player, teamName));
     }
 
@@ -2518,10 +2526,13 @@
       renderAll();
     }
 
-    function playerHighlightedInGame(game) {
+    function playerHighlightedInGame(game, roundKey) {
       if (!state.activePlayerId) return false;
       const player = getPlayerById(state.activePlayerId);
       if (!player) return false;
+      if (roundKey === 'round32') {
+        return playerHasSubmittedTeam(player, game.teamA?.name) || playerHasSubmittedTeam(player, game.teamB?.name);
+      }
       return playerHasTeam(player, game.teamA?.name) || playerHasTeam(player, game.teamB?.name);
     }
 
@@ -2603,11 +2614,11 @@
     }
 
     function renderGameCard(game, roundKey, label) {
-      const ownersA = getOwners(game.teamA?.name);
-      const ownersB = getOwners(game.teamB?.name);
+      const ownersA = getOwners(game.teamA?.name, roundKey);
+      const ownersB = getOwners(game.teamB?.name, roundKey);
       const classes = [
         'game-card',
-        playerHighlightedInGame(game) ? 'highlight' : '',
+        playerHighlightedInGame(game, roundKey) ? 'highlight' : '',
         state.recentUpdatedGameIds.has(game.id) ? 'live-updated' : ''
       ].filter(Boolean).join(' ');
 

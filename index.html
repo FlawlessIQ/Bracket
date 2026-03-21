@@ -1266,16 +1266,6 @@
           <div class="finals-grid" id="finalsGrid"></div>
         </section>
 
-        <section class="panel live-bracket-panel">
-          <div class="section-head">
-            <div>
-              <h2 class="section-title">Live Tournament View</h2>
-              <p class="muted small">Read-only ESPN bracket context for the current tournament slate.</p>
-            </div>
-            <span id="liveBracketSummary" class="chip">Waiting for sync</span>
-          </div>
-          <div id="liveBracketGrid" class="live-bracket-board"></div>
-        </section>
       </main>
     </div>
   </div>
@@ -2879,7 +2869,6 @@
       document.getElementById('appSubtitle').textContent = `The field and all ${state.playerCount} submitted entries are locked in. ${getTeamsAliveByEntrant().reduce((sum, entrant) => sum + entrant.aliveTeams, 0)} total live team positions remain in the pool.`;
       renderNameDependentViews();
       renderOverviewStats();
-      renderLiveBracketView();
       renderLiveStatus();
     }
 

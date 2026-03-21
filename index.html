@@ -2131,6 +2131,16 @@
 
           const homeCompetitor = competitors.find(competitor => competitor?.homeAway === 'home') || competitors[0];
           const awayCompetitor = competitors.find(competitor => competitor?.homeAway === 'away') || competitors[1];
+          const favoriteSpread = Number(competition?.odds?.[0]?.spread);
+          const homeFavorite = Boolean(competition?.odds?.[0]?.homeTeamOdds?.favorite);
+          const awayFavorite = Boolean(competition?.odds?.[0]?.awayTeamOdds?.favorite);
+          const awaySpread = Number.isNaN(favoriteSpread)
+            ? null
+            : awayFavorite
+              ? favoriteSpread
+              : homeFavorite
+                ? favoriteSpread * -1
+                : null;
           const statusState = competition?.status?.type?.state;
           const gameStatus = competition?.status?.type?.completed
             ? 'final'
@@ -2143,6 +2153,7 @@
             awayTeamName: awayCompetitor?.team?.displayName || awayCompetitor?.team?.shortDisplayName || awayCompetitor?.team?.name || '',
             homeScore: homeCompetitor?.score ?? '',
             awayScore: awayCompetitor?.score ?? '',
+            awaySpread,
             gameStatus
           };
         }).filter(Boolean);
@@ -2168,6 +2179,13 @@
             game.homeScore
           );
           if (updatedId) updatedGameIds.push(updatedId);
+
+          const spreadUpdatedId = updateSpread(
+            game.awayTeamName,
+            game.homeTeamName,
+            game.awaySpread
+          );
+          if (spreadUpdatedId) updatedGameIds.push(spreadUpdatedId);
         });
 
         state.liveBracketLastUpdated = games.length
@@ -2229,32 +2247,119 @@
       return state.players.find(p => p.id === id);
     }
 
+    function teamNamesMatch(left, right) {
+      return normalizeTeamName(left) === normalizeTeamName(right);
+    }
+
+    function findBracketTeamName(teamName) {
+      const mappedTeam = state.final32Teams.find(team => teamNamesMatch(team.name, teamName));
+      return mappedTeam?.name || teamName;
+    }
+
+    function findGameForTeam(roundKey, teamName) {
+      return state.rounds[roundKey].find(game => teamNamesMatch(game.teamA?.name, teamName) || teamNamesMatch(game.teamB?.name, teamName)) || null;
+    }
+
+    function resolveEntrantSlot(teamName) {
+      const submittedName = teamName;
+      let currentTeamName = findBracketTeamName(teamName);
+      const rounds = ['round32', 'sweet16', 'elite8', 'final4', 'championship'];
+
+      if (!state.final32Teams.some(team => teamNamesMatch(team.name, currentTeamName))) {
+        return {
+          id: canonicalizeTeamName(submittedName),
+          submittedName,
+          currentTeamName,
+          displayName: submittedName,
+          isAlive: false,
+          inherited: false,
+          eliminatedReason: 'Not in field'
+        };
+      }
+
+      for (const round of rounds) {
+        const game = findGameForTeam(round, currentTeamName);
+        if (!game) {
+          return {
+            id: canonicalizeTeamName(submittedName),
+            submittedName,
+            currentTeamName,
+            displayName: submittedName,
+            isAlive: true,
+            inherited: !teamNamesMatch(submittedName, currentTeamName),
+            inheritedTeamName: !teamNamesMatch(submittedName, currentTeamName) ? currentTeamName : '',
+            eliminatedReason: ''
+          };
+        }
+
+        if (game.scoreA === '' || game.scoreB === '') {
+          return {
+            id: canonicalizeTeamName(submittedName),
+            submittedName,
+            currentTeamName,
+            displayName: submittedName,
+            isAlive: true,
+            inherited: !teamNamesMatch(submittedName, currentTeamName),
+            inheritedTeamName: !teamNamesMatch(submittedName, currentTeamName) ? currentTeamName : '',
+            eliminatedReason: ''
+          };
+        }
+
+        if (game.winner === 'TIE' || game.coverTeam === 'PUSH') {
+          return {
+            id: canonicalizeTeamName(submittedName),
+            submittedName,
+            currentTeamName,
+            displayName: submittedName,
+            isAlive: false,
+            inherited: !teamNamesMatch(submittedName, currentTeamName),
+            inheritedTeamName: !teamNamesMatch(submittedName, currentTeamName) ? currentTeamName : '',
+            eliminatedReason: game.coverTeam === 'PUSH' ? 'Push' : 'Tie'
+          };
+        }
+
+        if (!teamNamesMatch(game.coverTeam, currentTeamName)) {
+          return {
+            id: canonicalizeTeamName(submittedName),
+            submittedName,
+            currentTeamName,
+            displayName: submittedName,
+            isAlive: false,
+            inherited: !teamNamesMatch(submittedName, currentTeamName),
+            inheritedTeamName: !teamNamesMatch(submittedName, currentTeamName) ? currentTeamName : '',
+            eliminatedReason: 'Failed to cover'
+          };
+        }
+
+        if (game.winner && game.winner !== 'TIE' && !teamNamesMatch(game.winner, currentTeamName)) {
+          currentTeamName = game.winner;
+        }
+      }
+
+      return {
+        id: canonicalizeTeamName(submittedName),
+        submittedName,
+        currentTeamName,
+        displayName: submittedName,
+        isAlive: true,
+        inherited: !teamNamesMatch(submittedName, currentTeamName),
+        inheritedTeamName: !teamNamesMatch(submittedName, currentTeamName) ? currentTeamName : '',
+        eliminatedReason: ''
+      };
+    }
+
+    function getPlayerAssignedTeams(player) {
+      return player.teamNames.map(resolveEntrantSlot);
+    }
+
     function playerHasTeam(player, teamName) {
-      const normalizedName = normalizeTeamName(teamName);
-      if (!normalizedName) return false;
-      return player.teamNames.some(assignedTeam => normalizeTeamName(assignedTeam) === normalizedName);
+      if (!teamName) return false;
+      return getPlayerAssignedTeams(player).some(slot => slot.isAlive && teamNamesMatch(slot.currentTeamName, teamName));
     }
 
     function getOwners(teamName) {
       if (!teamName) return [];
       return state.players.filter(player => playerHasTeam(player, teamName));
-    }
-
-    function isTeamInFinal32(teamName) {
-      const normalizedName = normalizeTeamName(teamName);
-      return state.final32Teams.some(team => normalizeTeamName(team.name) === normalizedName);
-    }
-
-    function getPlayerAssignedTeams(player) {
-      return player.teamNames.map(teamName => {
-        const mappedTeam = state.final32Teams.find(team => normalizeTeamName(team.name) === normalizeTeamName(teamName));
-        const resolvedName = mappedTeam?.name || teamName;
-        return {
-          id: mappedTeam?.id || canonicalizeTeamName(teamName),
-          name: teamName,
-          isAlive: teamStillAliveForPlayer(resolvedName, player.id)
-        };
-      });
     }
 
     function getTeamsAliveByEntrant() {
@@ -2266,23 +2371,9 @@
     }
 
     function teamStillAliveForPlayer(teamName, playerId) {
-      if (!isTeamInFinal32(teamName)) {
-        return false;
-      }
-
-      const rounds = ['round32', 'sweet16', 'elite8', 'final4', 'championship'];
-      for (const round of rounds) {
-        for (const game of state.rounds[round]) {
-          const hasTeam = game.teamA?.name === teamName || game.teamB?.name === teamName;
-          if (!hasTeam) continue;
-          if (round === 'final4' || round === 'championship') {
-            if (game.winner && game.winner !== teamName) return false;
-          } else {
-            if (game.coverTeam && game.coverTeam !== teamName) return false;
-          }
-        }
-      }
-      return true;
+      const player = getPlayerById(playerId);
+      if (!player) return false;
+      return getPlayerAssignedTeams(player).some(slot => slot.isAlive && teamNamesMatch(slot.currentTeamName, teamName));
     }
 
     function aliveCount(player) {
@@ -2300,11 +2391,6 @@
 
       const marginForA = a - b;
       game.winner = a > b ? game.teamA?.name : b > a ? game.teamB?.name : 'TIE';
-
-      if (game.round === 'final4' || game.round === 'championship') {
-        game.coverTeam = null;
-        return;
-      }
 
       if (!game.teamA || !game.teamB) {
         game.coverTeam = null;
@@ -2447,7 +2533,7 @@
                 <div class="entrant-card-track"><span style="width:${progress}%;"></span></div>
                 <div class="team-chips">
                   ${assignedTeams.length ? assignedTeams.map(team => `
-                    <span class="chip ${team.isAlive ? 'alive' : 'dead'}">${escapeHtml(team.name)}</span>
+                    <span class="chip ${team.isAlive ? 'alive' : 'dead'}">${escapeHtml(team.inherited ? `${team.submittedName} -> ${team.currentTeamName}` : team.submittedName)}</span>
                   `).join('') : '<span class="muted small">No teams assigned yet</span>'}
                 </div>
               </article>
@@ -2497,7 +2583,6 @@
     }
 
     function renderGameCard(game, roundKey, label) {
-      const isFinalMode = game.round === 'final4' || game.round === 'championship';
       const ownersA = getOwners(game.teamA?.name);
       const ownersB = getOwners(game.teamB?.name);
       const classes = [
@@ -2511,20 +2596,20 @@
           <div class="round-label">${label}</div>
           <div class="small muted" style="margin-bottom:8px;">${escapeHtml(game.region || '')}</div>
 
-          ${renderTeamLine(game, 'A', ownersA, isFinalMode, roundKey)}
-          ${renderTeamLine(game, 'B', ownersB, isFinalMode, roundKey)}
+          ${renderTeamLine(game, 'A', ownersA, roundKey)}
+          ${renderTeamLine(game, 'B', ownersB, roundKey)}
 
           <div class="small muted" style="margin-top:8px;">
-            ${isFinalMode ? `<strong>Mode:</strong> Winner advances` : `<strong>Spread:</strong> ${game.teamA?.name || 'TBD'} ${game.spread > 0 ? '+' : ''}${game.spread}`}
+            <strong>Spread:</strong> ${game.teamA?.name || 'TBD'} ${game.spread > 0 ? '+' : ''}${game.spread}
           </div>
-          <div class="small" style="margin-top:6px; color:${isFinalMode ? '#cfe1ff' : '#ffecb3'};">
-            ${renderResultText(game, isFinalMode)}
+          <div class="small" style="margin-top:6px; color:#ffecb3;">
+            ${renderResultText(game)}
           </div>
         </div>
       `;
     }
 
-    function renderTeamLine(game, side, owners, isFinalMode, roundKey) {
+    function renderTeamLine(game, side, owners, roundKey) {
       const team = side === 'A' ? game.teamA : game.teamB;
       const scoreField = side === 'A' ? 'scoreA' : 'scoreB';
       const isWinner = game.winner && game.winner === team?.name;
@@ -2537,7 +2622,7 @@
               <div class="team-meta">${!team ? 'Awaiting previous round winner' : owners.length ? `Owned by ${owners.length}` : 'Unassigned'}</div>
             </div>
             <input type="number" value="${game[scoreField]}" ${!team ? 'disabled' : ''} onchange="setGameField('${roundKey}','${game.id}','${scoreField}', this.value)" />
-            <div class="small muted">${side === 'A' && !isFinalMode ? 'Fav' : ''}</div>
+            <div class="small muted">${side === 'A' ? 'Fav' : ''}</div>
           </div>
           <div class="ownership">
             ${owners.length ? owners.map(owner => `<span class="owner ${owner.id === state.activePlayerId ? 'active-owner' : ''}">${escapeHtml(owner.name)}</span>`).join('') : '<span class="small muted">No entrants own this team</span>'}
@@ -2546,11 +2631,13 @@
       `;
     }
 
-    function renderResultText(game, isFinalMode) {
+    function renderResultText(game) {
       if (game.scoreA === '' || game.scoreB === '') return 'Enter both scores to calculate result.';
       if (game.winner === 'TIE') return 'Game tied in current entry. Update with final score.';
-      if (isFinalMode) return game.winner ? `${escapeHtml(game.winner)} advances.` : 'Awaiting result.';
       if (game.coverTeam === 'PUSH') return 'Spread result is a push. No cover winner recorded.';
+      if (game.coverTeam && game.winner && !teamNamesMatch(game.coverTeam, game.winner)) {
+        return `${escapeHtml(game.coverTeam)} covered and inherits ${escapeHtml(game.winner)}.`;
+      }
       return game.coverTeam ? `${escapeHtml(game.coverTeam)} covered and survives.` : 'Awaiting spread result.';
     }
 
@@ -2611,7 +2698,7 @@
         summary.textContent = state.liveSyncInFlight ? 'Syncing live bracket...' : 'Waiting for sync';
         el.innerHTML = `
           <div class="panel" style="background:#101834;border-style:dashed;">
-            <p class="muted" style="margin-bottom:0;">Use Manual Sync or enable Live Mode to load the current tournament bracket view.</p>
+            <p class="muted" style="margin-bottom:0;">Live sync is running. The current tournament bracket will appear here as ESPN updates become available.</p>
           </div>
         `;
         return;

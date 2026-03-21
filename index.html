@@ -2172,13 +2172,15 @@
         const updatedGameIds = [];
 
         games.forEach(game => {
-          const updatedId = updateGameFromEspn(
-            game.awayTeamName,
-            game.homeTeamName,
-            game.awayScore,
-            game.homeScore
-          );
-          if (updatedId) updatedGameIds.push(updatedId);
+          if (game.gameStatus !== 'scheduled') {
+            const updatedId = updateGameFromEspn(
+              game.awayTeamName,
+              game.homeTeamName,
+              game.awayScore,
+              game.homeScore
+            );
+            if (updatedId) updatedGameIds.push(updatedId);
+          }
 
           const spreadUpdatedId = updateSpread(
             game.awayTeamName,
@@ -2350,6 +2352,18 @@
 
     function getPlayerAssignedTeams(player) {
       return player.teamNames.map(resolveEntrantSlot);
+    }
+
+    function formatAssignedTeamLabel(team) {
+      if (!state.final32Teams.some(fieldTeam => teamNamesMatch(fieldTeam.name, team.currentTeamName))) {
+        return `Not in field: ${team.submittedName}`;
+      }
+
+      if (team.inherited) {
+        return `${team.currentTeamName} (from ${team.submittedName})`;
+      }
+
+      return team.currentTeamName;
     }
 
     function playerHasTeam(player, teamName) {
@@ -2533,7 +2547,7 @@
                 <div class="entrant-card-track"><span style="width:${progress}%;"></span></div>
                 <div class="team-chips">
                   ${assignedTeams.length ? assignedTeams.map(team => `
-                    <span class="chip ${team.isAlive ? 'alive' : 'dead'}">${escapeHtml(team.inherited ? `${team.submittedName} -> ${team.currentTeamName}` : team.submittedName)}</span>
+                    <span class="chip ${team.isAlive ? 'alive' : 'dead'}">${escapeHtml(formatAssignedTeamLabel(team))}</span>
                   `).join('') : '<span class="muted small">No teams assigned yet</span>'}
                 </div>
               </article>

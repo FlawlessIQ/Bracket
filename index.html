@@ -2328,6 +2328,70 @@
       return brackets.find(bracket => bracket.regionName === regionName) || buildLiveRegionBracket(regionName, []);
     }
 
+    function extractEspnGameUpdate(event) {
+      const competition = event?.competitions?.[0];
+      const competitors = Array.isArray(competition?.competitors) ? competition.competitors : [];
+      if (competitors.length < 2) return null;
+
+      const homeCompetitor = competitors.find(competitor => competitor?.homeAway === 'home') || competitors[0];
+      const awayCompetitor = competitors.find(competitor => competitor?.homeAway === 'away') || competitors[1];
+      const favoriteSpread = Number(competition?.odds?.[0]?.spread);
+      const homeFavorite = Boolean(competition?.odds?.[0]?.homeTeamOdds?.favorite);
+      const awayFavorite = Boolean(competition?.odds?.[0]?.awayTeamOdds?.favorite);
+      const awaySpread = Number.isNaN(favoriteSpread)
+        ? null
+        : awayFavorite
+          ? favoriteSpread
+          : homeFavorite
+            ? favoriteSpread * -1
+            : null;
+      const statusState = competition?.status?.type?.state;
+      const gameStatus = competition?.status?.type?.completed
+        ? 'final'
+        : statusState === 'in'
+          ? 'in-progress'
+          : 'scheduled';
+
+      return {
+        homeTeamName: homeCompetitor?.team?.displayName || homeCompetitor?.team?.shortDisplayName || homeCompetitor?.team?.name || '',
+        awayTeamName: awayCompetitor?.team?.displayName || awayCompetitor?.team?.shortDisplayName || awayCompetitor?.team?.name || '',
+        homeScore: homeCompetitor?.score ?? '',
+        awayScore: awayCompetitor?.score ?? '',
+        awaySpread,
+        gameStatus
+      };
+    }
+
+    function applyEspnGameUpdates(games, markUpdated = true) {
+      const updatedGameIds = [];
+
+      games.forEach(game => {
+        if (game.gameStatus !== 'scheduled') {
+          const updatedId = updateGameFromEspn(
+            game.awayTeamName,
+            game.homeTeamName,
+            game.awayScore,
+            game.homeScore,
+            game.gameStatus
+          );
+          if (updatedId) updatedGameIds.push(updatedId);
+        }
+
+        const spreadUpdatedId = updateSpread(
+          game.awayTeamName,
+          game.homeTeamName,
+          game.awaySpread
+        );
+        if (spreadUpdatedId) updatedGameIds.push(spreadUpdatedId);
+      });
+
+      if (markUpdated && updatedGameIds.length) {
+        markGamesUpdated(updatedGameIds);
+      }
+
+      return updatedGameIds;
+    }
+
     async function fetchEspnScores() {
       try {
         const response = await fetch(LIVE_SCOREBOARD_URL);
@@ -2339,42 +2403,24 @@
         const events = Array.isArray(data?.events) ? data.events : [];
         state.liveBracketGames = buildLiveBracketGames(events);
 
-        return events.map(event => {
-          const competition = event?.competitions?.[0];
-          const competitors = Array.isArray(competition?.competitors) ? competition.competitors : [];
-          if (competitors.length < 2) return null;
-
-          const homeCompetitor = competitors.find(competitor => competitor?.homeAway === 'home') || competitors[0];
-          const awayCompetitor = competitors.find(competitor => competitor?.homeAway === 'away') || competitors[1];
-          const favoriteSpread = Number(competition?.odds?.[0]?.spread);
-          const homeFavorite = Boolean(competition?.odds?.[0]?.homeTeamOdds?.favorite);
-          const awayFavorite = Boolean(competition?.odds?.[0]?.awayTeamOdds?.favorite);
-          const awaySpread = Number.isNaN(favoriteSpread)
-            ? null
-            : awayFavorite
-              ? favoriteSpread
-              : homeFavorite
-                ? favoriteSpread * -1
-                : null;
-          const statusState = competition?.status?.type?.state;
-          const gameStatus = competition?.status?.type?.completed
-            ? 'final'
-            : statusState === 'in'
-              ? 'in-progress'
-              : 'scheduled';
-
-          return {
-            homeTeamName: homeCompetitor?.team?.displayName || homeCompetitor?.team?.shortDisplayName || homeCompetitor?.team?.name || '',
-            awayTeamName: awayCompetitor?.team?.displayName || awayCompetitor?.team?.shortDisplayName || awayCompetitor?.team?.name || '',
-            homeScore: homeCompetitor?.score ?? '',
-            awayScore: awayCompetitor?.score ?? '',
-            awaySpread,
-            gameStatus
-          };
-        }).filter(Boolean);
+        return events.map(extractEspnGameUpdate).filter(Boolean);
       } catch (error) {
         console.log('ESPN fetch failed');
         return [];
+      }
+    }
+
+    async function syncRecentEspnScores() {
+      if (state.liveSyncInFlight) return;
+      state.liveSyncInFlight = true;
+
+      try {
+        const events = await fetchRecentTournamentEvents();
+        const games = events.map(extractEspnGameUpdate).filter(Boolean);
+        applyEspnGameUpdates(games, false);
+      } finally {
+        state.liveSyncInFlight = false;
+        renderAll();
       }
     }
 
@@ -2384,46 +2430,23 @@
 
       try {
         const games = await fetchEspnScores();
-        const updatedGameIds = [];
-
-        games.forEach(game => {
-          if (game.gameStatus !== 'scheduled') {
-            const updatedId = updateGameFromEspn(
-              game.awayTeamName,
-              game.homeTeamName,
-              game.awayScore,
-              game.homeScore,
-              game.gameStatus
-            );
-            if (updatedId) updatedGameIds.push(updatedId);
-          }
-
-          const spreadUpdatedId = updateSpread(
-            game.awayTeamName,
-            game.homeTeamName,
-            game.awaySpread
-          );
-          if (spreadUpdatedId) updatedGameIds.push(spreadUpdatedId);
-        });
+        const updatedGameIds = applyEspnGameUpdates(games);
 
         state.liveBracketLastUpdated = games.length
           ? new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
           : state.liveBracketLastUpdated;
-
-        if (updatedGameIds.length) {
-          markGamesUpdated(updatedGameIds);
-        }
       } finally {
         state.liveSyncInFlight = false;
         renderAll();
       }
     }
 
-    function startLiveMode() {
+    async function startLiveMode() {
       if (liveInterval) return;
       state.liveMode = true;
       renderAll();
-      syncEspnScores();
+      await syncRecentEspnScores();
+      await syncEspnScores();
       liveInterval = setInterval(syncEspnScores, LIVE_REFRESH_MS);
     }
 

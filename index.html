@@ -906,6 +906,11 @@
       border-color: rgba(27, 92, 181, 0.18);
     }
 
+    .assignment-slot.pending {
+      background: rgba(241, 139, 42, 0.1);
+      border-color: rgba(241, 139, 42, 0.2);
+    }
+
     .assignment-slot.lost {
       background: rgba(186, 91, 91, 0.08);
       border-color: rgba(186, 91, 91, 0.18);
@@ -932,6 +937,10 @@
 
     .assignment-slot.gained .assignment-slot-team {
       color: #1b4e96;
+    }
+
+    .assignment-slot.pending .assignment-slot-team {
+      color: #8b4f12;
     }
 
     .assignment-slot.lost .assignment-slot-team {
@@ -2482,6 +2491,7 @@
           displayName: submittedName,
           isAlive: false,
           inherited: false,
+          pendingSpread: false,
           eliminatedReason: 'Not in field'
         };
       }
@@ -2497,6 +2507,7 @@
             isAlive: true,
             inherited: !teamNamesMatch(submittedName, currentTeamName),
             inheritedTeamName: !teamNamesMatch(submittedName, currentTeamName) ? currentTeamName : '',
+            pendingSpread: false,
             eliminatedReason: ''
           };
         }
@@ -2510,6 +2521,7 @@
             isAlive: true,
             inherited: !teamNamesMatch(submittedName, currentTeamName),
             inheritedTeamName: !teamNamesMatch(submittedName, currentTeamName) ? currentTeamName : '',
+            pendingSpread: false,
             eliminatedReason: ''
           };
         }
@@ -2523,6 +2535,21 @@
             isAlive: true,
             inherited: !teamNamesMatch(submittedName, currentTeamName),
             inheritedTeamName: !teamNamesMatch(submittedName, currentTeamName) ? currentTeamName : '',
+            pendingSpread: false,
+            eliminatedReason: ''
+          };
+        }
+
+        if (!hasVerifiedSpread(game)) {
+          return {
+            id: canonicalizeTeamName(submittedName),
+            submittedName,
+            currentTeamName,
+            displayName: submittedName,
+            isAlive: true,
+            inherited: !teamNamesMatch(submittedName, currentTeamName),
+            inheritedTeamName: !teamNamesMatch(submittedName, currentTeamName) ? currentTeamName : '',
+            pendingSpread: true,
             eliminatedReason: ''
           };
         }
@@ -2536,6 +2563,7 @@
             isAlive: false,
             inherited: !teamNamesMatch(submittedName, currentTeamName),
             inheritedTeamName: !teamNamesMatch(submittedName, currentTeamName) ? currentTeamName : '',
+            pendingSpread: false,
             eliminatedReason: game.coverTeam === 'PUSH' ? 'Push' : 'Tie'
           };
         }
@@ -2549,6 +2577,7 @@
             isAlive: false,
             inherited: !teamNamesMatch(submittedName, currentTeamName),
             inheritedTeamName: !teamNamesMatch(submittedName, currentTeamName) ? currentTeamName : '',
+            pendingSpread: false,
             eliminatedReason: 'Failed to cover'
           };
         }
@@ -2566,6 +2595,7 @@
         isAlive: true,
         inherited: !teamNamesMatch(submittedName, currentTeamName),
         inheritedTeamName: !teamNamesMatch(submittedName, currentTeamName) ? currentTeamName : '',
+        pendingSpread: false,
         eliminatedReason: ''
       };
     }
@@ -2608,6 +2638,15 @@
           label: 'Gained Team',
           teamName: team.currentTeamName,
           meta: `Started with ${team.submittedName}.`
+        };
+      }
+
+      if (team.isAlive && team.pendingSpread) {
+        return {
+          tone: 'pending',
+          label: 'Pending Spread',
+          teamName: team.currentTeamName,
+          meta: `Final score is in for ${team.currentTeamName}, but the verified pregame line is still missing.`
         };
       }
 

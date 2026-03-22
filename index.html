@@ -1388,26 +1388,37 @@
       [[7, 10], [2, 15]]
     ];
 
+    const LOCKED_ROUND32_SPREADS = {
+      'Duke__TCU': -12.5,
+      'Louisville__Michigan State': 5.5,
+      'High Point__Arkansas': 12.5,
+      'Texas__Gonzaga': 5.5,
+      'Vanderbilt__Nebraska': -1.5,
+      'VCU__Illinois': 12.5,
+      'Texas A&M__Houston': 10.5,
+      'Michigan__Saint Louis': -12.5
+    };
+
     const initialMatchups = [
-      { region: 'East', teamA: { seed: 1, name: 'Duke' }, teamB: { seed: 9, name: 'TCU' }, spread: 0 },
-      { region: 'East', teamA: { seed: 5, name: "St. John's" }, teamB: { seed: 4, name: 'Kansas' }, spread: 0 },
-      { region: 'East', teamA: { seed: 6, name: 'Louisville' }, teamB: { seed: 3, name: 'Michigan State' }, spread: 0 },
-      { region: 'East', teamA: { seed: 7, name: 'UCLA' }, teamB: { seed: 2, name: 'UConn' }, spread: 0 },
+      { region: 'East', teamA: { seed: 1, name: 'Duke' }, teamB: { seed: 9, name: 'TCU' }, spread: null },
+      { region: 'East', teamA: { seed: 5, name: "St. John's" }, teamB: { seed: 4, name: 'Kansas' }, spread: null },
+      { region: 'East', teamA: { seed: 6, name: 'Louisville' }, teamB: { seed: 3, name: 'Michigan State' }, spread: null },
+      { region: 'East', teamA: { seed: 7, name: 'UCLA' }, teamB: { seed: 2, name: 'UConn' }, spread: null },
 
-      { region: 'West', teamA: { seed: 1, name: 'Arizona' }, teamB: { seed: 9, name: 'Utah State' }, spread: 0 },
-      { region: 'West', teamA: { seed: 12, name: 'High Point' }, teamB: { seed: 4, name: 'Arkansas' }, spread: 0 },
-      { region: 'West', teamA: { seed: 11, name: 'Texas' }, teamB: { seed: 3, name: 'Gonzaga' }, spread: 0 },
-      { region: 'West', teamA: { seed: 7, name: 'Miami' }, teamB: { seed: 2, name: 'Purdue' }, spread: 0 },
+      { region: 'West', teamA: { seed: 1, name: 'Arizona' }, teamB: { seed: 9, name: 'Utah State' }, spread: null },
+      { region: 'West', teamA: { seed: 12, name: 'High Point' }, teamB: { seed: 4, name: 'Arkansas' }, spread: null },
+      { region: 'West', teamA: { seed: 11, name: 'Texas' }, teamB: { seed: 3, name: 'Gonzaga' }, spread: null },
+      { region: 'West', teamA: { seed: 7, name: 'Miami' }, teamB: { seed: 2, name: 'Purdue' }, spread: null },
 
-      { region: 'South', teamA: { seed: 1, name: 'Florida' }, teamB: { seed: 9, name: 'Iowa' }, spread: 0 },
-      { region: 'South', teamA: { seed: 5, name: 'Vanderbilt' }, teamB: { seed: 4, name: 'Nebraska' }, spread: 0 },
-      { region: 'South', teamA: { seed: 11, name: 'VCU' }, teamB: { seed: 3, name: 'Illinois' }, spread: 0 },
-      { region: 'South', teamA: { seed: 10, name: 'Texas A&M' }, teamB: { seed: 2, name: 'Houston' }, spread: 0 },
+      { region: 'South', teamA: { seed: 1, name: 'Florida' }, teamB: { seed: 9, name: 'Iowa' }, spread: null },
+      { region: 'South', teamA: { seed: 5, name: 'Vanderbilt' }, teamB: { seed: 4, name: 'Nebraska' }, spread: null },
+      { region: 'South', teamA: { seed: 11, name: 'VCU' }, teamB: { seed: 3, name: 'Illinois' }, spread: null },
+      { region: 'South', teamA: { seed: 10, name: 'Texas A&M' }, teamB: { seed: 2, name: 'Houston' }, spread: null },
 
-      { region: 'Midwest', teamA: { seed: 1, name: 'Michigan' }, teamB: { seed: 9, name: 'Saint Louis' }, spread: 0 },
-      { region: 'Midwest', teamA: { seed: 5, name: 'Texas Tech' }, teamB: { seed: 4, name: 'Alabama' }, spread: 0 },
-      { region: 'Midwest', teamA: { seed: 6, name: 'Tennessee' }, teamB: { seed: 3, name: 'Virginia' }, spread: 0 },
-      { region: 'Midwest', teamA: { seed: 7, name: 'Kentucky' }, teamB: { seed: 2, name: 'Iowa State' }, spread: 0 }
+      { region: 'Midwest', teamA: { seed: 1, name: 'Michigan' }, teamB: { seed: 9, name: 'Saint Louis' }, spread: null },
+      { region: 'Midwest', teamA: { seed: 5, name: 'Texas Tech' }, teamB: { seed: 4, name: 'Alabama' }, spread: null },
+      { region: 'Midwest', teamA: { seed: 6, name: 'Tennessee' }, teamB: { seed: 3, name: 'Virginia' }, spread: null },
+      { region: 'Midwest', teamA: { seed: 7, name: 'Kentucky' }, teamB: { seed: 2, name: 'Iowa State' }, spread: null }
     ];
 
     const regions = ['East', 'West', 'South', 'Midwest'];
@@ -1483,18 +1494,20 @@
       return matchups.map((matchup, index) => {
         const regionIndex = Math.floor(index / 4);
         const gameNumber = (index % 4) + 1;
+        const lockedSpread = getLockedRound32Spread(matchup.teamA?.name, matchup.teamB?.name);
         return makeGame(
           `r32_${regionIndex}_${gameNumber}`,
           'round32',
           matchup.region,
           matchup.teamA,
           matchup.teamB,
-          matchup.spread
+          lockedSpread ?? matchup.spread,
+          lockedSpread !== null
         );
       });
     }
 
-    function makeGame(id, round, region, teamA, teamB, spread = 0) {
+    function makeGame(id, round, region, teamA, teamB, spread = null, spreadLocked = false) {
       return {
         id,
         round,
@@ -1502,6 +1515,7 @@
         teamA: teamA ? { ...teamA } : null,
         teamB: teamB ? { ...teamB } : null,
         spread,
+        spreadLocked,
         scoreA: '',
         scoreB: '',
         gameStatus: 'scheduled',
@@ -1518,21 +1532,21 @@
 
       for (let r = 0; r < 4; r++) {
         state.rounds.sweet16.push(
-          makeGame(`s16_${r}_1`, 'sweet16', regions[r], null, null, -3.5),
-          makeGame(`s16_${r}_2`, 'sweet16', regions[r], null, null, -3.5)
+          makeGame(`s16_${r}_1`, 'sweet16', regions[r], null, null),
+          makeGame(`s16_${r}_2`, 'sweet16', regions[r], null, null)
         );
         state.rounds.elite8.push(
-          makeGame(`e8_${r}_1`, 'elite8', regions[r], null, null, -2.5)
+          makeGame(`e8_${r}_1`, 'elite8', regions[r], null, null)
         );
       }
 
       state.rounds.final4.push(
-        makeGame('f4_1', 'final4', 'Final Four', null, null, 0),
-        makeGame('f4_2', 'final4', 'Final Four', null, null, 0)
+        makeGame('f4_1', 'final4', 'Final Four', null, null),
+        makeGame('f4_2', 'final4', 'Final Four', null, null)
       );
 
       state.rounds.championship.push(
-        makeGame('champ_1', 'championship', 'Championship', null, null, 0)
+        makeGame('champ_1', 'championship', 'Championship', null, null)
       );
     }
 
@@ -1687,7 +1701,7 @@
         if (competitors.length < 2) return;
 
         const favoriteSpread = Number(competition?.odds?.[0]?.spread);
-        if (Number.isNaN(favoriteSpread)) return;
+        if (!isSyncableSpreadValue(favoriteSpread)) return;
 
         const teamA = competitors[0]?.team?.displayName || competitors[0]?.team?.shortDisplayName || competitors[0]?.team?.name;
         const teamB = competitors[1]?.team?.displayName || competitors[1]?.team?.shortDisplayName || competitors[1]?.team?.name;
@@ -1707,8 +1721,11 @@
     }
 
     function getRound32Spread(teamAName, teamBName, spreadLookup) {
+      const lockedSpread = getLockedRound32Spread(teamAName, teamBName);
+      if (lockedSpread !== null) return lockedSpread;
+
       const spreadEntry = spreadLookup[createMatchupKey(teamAName, teamBName)];
-      if (!spreadEntry) return 0;
+      if (!spreadEntry) return null;
       return normalizeTeamName(teamAName) === spreadEntry.favoredTeam
         ? spreadEntry.spread
         : spreadEntry.spread * -1;
@@ -1921,10 +1938,11 @@
     }
 
     function updateSpread(teamA, teamB, spread) {
-      if (spread === null || spread === undefined || Number.isNaN(Number(spread))) return false;
+      if (!isSyncableSpreadValue(spread)) return false;
 
       const game = findGameByTeams(teamA, teamB);
       if (!game) return false;
+      if (game.spreadLocked || game.gameStatus !== 'scheduled') return false;
 
       const normalizedA = normalizeTeamName(teamA);
       const normalizedGameA = normalizeTeamName(game.teamA?.name);
@@ -1941,6 +1959,27 @@
         .filter(Boolean)
         .sort()
         .join('__');
+    }
+
+    function getLockedRound32Spread(teamA, teamB) {
+      const key = createMatchupKey(teamA, teamB);
+      return Object.prototype.hasOwnProperty.call(LOCKED_ROUND32_SPREADS, key)
+        ? LOCKED_ROUND32_SPREADS[key]
+        : null;
+    }
+
+    function hasVerifiedSpread(game) {
+      return game && game.spread !== null && game.spread !== undefined && !Number.isNaN(Number(game.spread));
+    }
+
+    function isSyncableSpreadValue(spread) {
+      return spread !== null && spread !== undefined && !Number.isNaN(Number(spread)) && Number(spread) !== 0;
+    }
+
+    function formatSpreadText(game) {
+      if (!game.teamA || !game.teamB) return 'Pending matchup';
+      if (!hasVerifiedSpread(game)) return 'Pending verified pregame line';
+      return `${game.teamA.name} ${game.spread > 0 ? '+' : ''}${game.spread}`;
     }
 
     function parseLiveBracketHeadline(headline) {
@@ -2520,7 +2559,12 @@
         return;
       }
 
-      const adjusted = marginForA + Number(game.spread || 0);
+      if (!hasVerifiedSpread(game)) {
+        game.coverTeam = null;
+        return;
+      }
+
+      const adjusted = marginForA + Number(game.spread);
       if (adjusted > 0) game.coverTeam = game.teamA.name;
       else if (adjusted < 0) game.coverTeam = game.teamB.name;
       else game.coverTeam = 'PUSH';
@@ -2733,7 +2777,7 @@
           ${renderTeamLine(game, 'B', ownersB, roundKey)}
 
           <div class="small muted" style="margin-top:8px;">
-            <strong>Spread:</strong> ${game.teamA?.name || 'TBD'} ${game.spread > 0 ? '+' : ''}${game.spread}
+            <strong>Spread:</strong> ${escapeHtml(formatSpreadText(game))}
           </div>
           <div class="small" style="margin-top:6px; color:#5a6785;">
             ${renderResultText(game)}
@@ -2769,6 +2813,7 @@
       if (game.scoreA === '' || game.scoreB === '' || game.gameStatus === 'scheduled') return 'Waiting for live score sync.';
       if (game.gameStatus === 'in-progress') return 'Game is live. Pool result will lock when final.';
       if (game.winner === 'TIE') return 'Game ended tied.';
+      if (!hasVerifiedSpread(game)) return 'Final score recorded. Awaiting a verified pregame spread.';
       if (game.coverTeam === 'PUSH') return 'Spread result is a push. No cover winner recorded.';
       if (game.coverTeam && game.winner && !teamNamesMatch(game.coverTeam, game.winner)) {
         return `${escapeHtml(game.coverTeam)} covered and inherits ${escapeHtml(game.winner)}.`;

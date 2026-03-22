@@ -1053,6 +1053,41 @@
       font-size: 14px;
     }
 
+    .path-filter-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 18px 0;
+    }
+
+    .path-filter-button {
+      background: rgba(22,74,143,0.08);
+      border: 1px solid rgba(22,74,143,0.12);
+      color: #173159;
+      border-radius: 999px;
+      padding: 10px 14px;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .path-filter-button.active {
+      background: #143d77;
+      border-color: #143d77;
+      color: #eff6ff;
+    }
+
+    .path-filter-button.auto {
+      border-style: dashed;
+    }
+
+    .path-filter-summary {
+      margin-bottom: 18px;
+      color: #6c7890;
+      font-size: 13px;
+    }
+
     .bracket-grid {
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 16px;
@@ -1311,9 +1346,11 @@
               <p class="muted small">Official Round of 32 field from your bracket sheet, then survivor progression through the title game.</p>
             </div>
           </div>
+          <div id="tournamentPathFilterBar" class="path-filter-bar"></div>
+          <div id="tournamentPathSummary" class="path-filter-summary"></div>
           <div class="bracket-grid" id="regionsGrid"></div>
 
-          <div class="section-head" style="margin-top:20px;">
+          <div id="finalStagesSectionHead" class="section-head" style="margin-top:20px;">
             <div>
               <h2 class="section-title">Final Stages</h2>
               <p class="muted small">Final Four and national championship path.</p>
@@ -1346,6 +1383,13 @@
       [2, 15]
     ];
     const LIVE_BRACKET_ROUND_LABELS = ['Round of 64', 'Round of 32', 'Sweet 16', 'Elite 8'];
+    const TOURNAMENT_PATH_ROUNDS = [
+      { key: 'round32', label: 'Round of 32', type: 'region' },
+      { key: 'sweet16', label: 'Sweet 16', type: 'region' },
+      { key: 'elite8', label: 'Elite 8', type: 'region' },
+      { key: 'final4', label: 'Final Four', type: 'final' },
+      { key: 'championship', label: 'Championship', type: 'final' }
+    ];
     const TEAM_NAME_MAP = {
       'Connecticut Huskies': 'UConn',
       'North Carolina Tar Heels': 'North Carolina',
@@ -1439,6 +1483,7 @@
       players: [],
       final32Teams: [],
       activePlayerId: null,
+      tournamentPathRoundFilter: 'auto',
       liveMode: false,
       liveSyncInFlight: false,
       liveUpdateTimer: null,
@@ -1980,6 +2025,80 @@
       if (!game.teamA || !game.teamB) return 'Pending matchup';
       if (!hasVerifiedSpread(game)) return 'Pending verified pregame line';
       return `${game.teamA.name} ${game.spread > 0 ? '+' : ''}${game.spread}`;
+    }
+
+    function isGameFinal(game) {
+      return Boolean(
+        game
+        && game.teamA
+        && game.teamB
+        && game.gameStatus === 'final'
+        && game.scoreA !== ''
+        && game.scoreB !== ''
+      );
+    }
+
+    function isRoundComplete(roundKey) {
+      const games = state.rounds[roundKey] || [];
+      return games.length > 0 && games.every(isGameFinal);
+    }
+
+    function getCurrentTournamentPathRoundKey() {
+      if (!isRoundComplete('round32')) return 'round32';
+      if (!isRoundComplete('sweet16')) return 'sweet16';
+      if (!isRoundComplete('elite8')) return 'elite8';
+      if (!isRoundComplete('final4')) return 'final4';
+      return 'championship';
+    }
+
+    function getVisibleTournamentPathRoundKey() {
+      return state.tournamentPathRoundFilter === 'auto'
+        ? getCurrentTournamentPathRoundKey()
+        : state.tournamentPathRoundFilter;
+    }
+
+    function getTournamentPathRoundMeta(roundKey) {
+      return TOURNAMENT_PATH_ROUNDS.find(round => round.key === roundKey) || TOURNAMENT_PATH_ROUNDS[0];
+    }
+
+    function setTournamentPathRoundFilter(roundKey) {
+      state.tournamentPathRoundFilter = roundKey;
+      renderTournamentPath();
+    }
+
+    function renderTournamentPathFilter() {
+      const bar = document.getElementById('tournamentPathFilterBar');
+      const summary = document.getElementById('tournamentPathSummary');
+      const visibleRoundKey = getVisibleTournamentPathRoundKey();
+      const visibleRound = getTournamentPathRoundMeta(visibleRoundKey);
+      const autoActive = state.tournamentPathRoundFilter === 'auto';
+
+      bar.innerHTML = `
+        <button
+          class="path-filter-button auto ${autoActive ? 'active' : ''}"
+          onclick="setTournamentPathRoundFilter('auto')"
+        >
+          Current Round
+        </button>
+        ${TOURNAMENT_PATH_ROUNDS.map(round => `
+          <button
+            class="path-filter-button ${!autoActive && visibleRoundKey === round.key ? 'active' : ''}"
+            onclick="setTournamentPathRoundFilter('${round.key}')"
+          >
+            ${escapeHtml(round.label)}
+          </button>
+        `).join('')}
+      `;
+
+      summary.textContent = autoActive
+        ? `Showing the current round: ${visibleRound.label}. This view will advance automatically when the previous round is fully final.`
+        : `Showing ${visibleRound.label}. Use Current Round to jump back to the live tournament stage.`;
+    }
+
+    function renderTournamentPath() {
+      renderTournamentPathFilter();
+      renderRegions();
+      renderFinals();
     }
 
     function parseLiveBracketHeadline(headline) {
@@ -2755,8 +2874,7 @@
     function renderNameDependentViews() {
       renderAssignments();
       renderLeaderboard();
-      renderRegions();
-      renderFinals();
+      renderTournamentPath();
     }
 
     function renderGameCard(game, roundKey, label) {
@@ -2823,50 +2941,74 @@
 
     function renderRegions() {
       const el = document.getElementById('regionsGrid');
-      const byRegion = regions.map(region => state.rounds.round32.filter(g => g.region === region));
-      el.innerHTML = byRegion.map((games, idx) => `
+      const visibleRoundKey = getVisibleTournamentPathRoundKey();
+      const visibleRound = getTournamentPathRoundMeta(visibleRoundKey);
+
+      if (visibleRound.type !== 'region') {
+        el.style.display = 'none';
+        el.innerHTML = '';
+        return;
+      }
+
+      el.style.display = 'grid';
+      el.innerHTML = regions.map(region => {
+        const games = (state.rounds[visibleRoundKey] || []).filter(g => g.region === region);
+        return `
         <section class="region-stage">
           <div class="region-stage-head">
             <div>
-              <span class="region-kicker">${regions[idx]} Region</span>
-              <h3>${regions[idx]}</h3>
+              <span class="region-kicker">${region} Region</span>
+              <h3>${region}</h3>
             </div>
-            <p class="muted small">${games.length} live Round of 32 matchups</p>
+            <p class="muted small">${games.length} ${visibleRound.label} matchup${games.length === 1 ? '' : 's'}</p>
           </div>
           <div class="region-stage-columns">
             <div class="stage-column">
-              <div class="stage-column-label">Round of 32</div>
-              ${games.map(g => renderGameCard(g, 'round32', 'Round of 32')).join('')}
-            </div>
-            <div class="stage-column">
-              <div class="stage-column-label">Sweet 16</div>
-              ${state.rounds.sweet16.filter(g => g.region === regions[idx]).map(g => renderGameCard(g, 'sweet16', 'Sweet 16')).join('')}
-            </div>
-            <div class="stage-column">
-              <div class="stage-column-label">Elite 8</div>
-              ${state.rounds.elite8.filter(g => g.region === regions[idx]).map(g => renderGameCard(g, 'elite8', 'Elite 8')).join('')}
+              <div class="stage-column-label">${visibleRound.label}</div>
+              ${games.map(g => renderGameCard(g, visibleRoundKey, visibleRound.label)).join('')}
             </div>
           </div>
         </section>
-      `).join('');
+      `;
+      }).join('');
     }
 
     function renderFinals() {
       const el = document.getElementById('finalsGrid');
-      el.innerHTML = `
-        <div class="final-stage-card">
-          <h3>Final Four 1</h3>
-          ${renderGameCard(state.rounds.final4[0], 'final4', 'Final Four')}
-        </div>
-        <div class="final-stage-card">
-          <h3>Final Four 2</h3>
-          ${renderGameCard(state.rounds.final4[1], 'final4', 'Final Four')}
-        </div>
-        <div class="final-stage-card">
-          <h3>Championship</h3>
-          ${renderGameCard(state.rounds.championship[0], 'championship', 'Championship')}
-        </div>
-      `;
+      const finalHead = document.getElementById('finalStagesSectionHead');
+      const visibleRoundKey = getVisibleTournamentPathRoundKey();
+
+      if (visibleRoundKey === 'final4') {
+        if (finalHead) finalHead.style.display = 'flex';
+        el.style.display = 'grid';
+        el.innerHTML = `
+          <div class="final-stage-card">
+            <h3>Final Four 1</h3>
+            ${renderGameCard(state.rounds.final4[0], 'final4', 'Final Four')}
+          </div>
+          <div class="final-stage-card">
+            <h3>Final Four 2</h3>
+            ${renderGameCard(state.rounds.final4[1], 'final4', 'Final Four')}
+          </div>
+        `;
+        return;
+      }
+
+      if (visibleRoundKey === 'championship') {
+        if (finalHead) finalHead.style.display = 'flex';
+        el.style.display = 'grid';
+        el.innerHTML = `
+          <div class="final-stage-card">
+            <h3>Championship</h3>
+            ${renderGameCard(state.rounds.championship[0], 'championship', 'Championship')}
+          </div>
+        `;
+        return;
+      }
+
+      if (finalHead) finalHead.style.display = 'none';
+      el.style.display = 'none';
+      el.innerHTML = '';
     }
 
     function renderLiveBracketView() {
@@ -3113,6 +3255,7 @@
     }
 
     window.setGameField = setGameField;
+    window.setTournamentPathRoundFilter = setTournamentPathRoundFilter;
     window.toggleActivePlayer = toggleActivePlayer;
 
     resetAll();

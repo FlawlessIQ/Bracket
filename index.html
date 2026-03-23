@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="canonical" href="https://flawlessiq.github.io/Bracket/" />
   <title>March Madness Survivor Pool MVP</title>
   <style>
     :root {
@@ -1052,6 +1053,65 @@
       color: #173159;
     }
 
+    .live-site-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      margin-top: 12px;
+      padding: 11px 14px;
+      border-radius: 14px;
+      text-decoration: none;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      color: #eff6ff;
+      background: linear-gradient(180deg, #1f67bf, #143d77);
+    }
+
+    .diagnostics-stack {
+      display: grid;
+      gap: 12px;
+    }
+
+    .diagnostics-list {
+      display: grid;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .diagnostics-item {
+      display: grid;
+      gap: 3px;
+      padding: 10px 12px;
+      border-radius: 14px;
+      background: rgba(255,255,255,0.72);
+      border: 1px solid rgba(22,35,59,0.08);
+    }
+
+    .diagnostics-kv {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      font-size: 12px;
+      color: #586884;
+    }
+
+    .diagnostics-kv strong {
+      margin-bottom: 0;
+      font-size: 12px;
+      letter-spacing: 0.08em;
+    }
+
+    .diagnostics-alert {
+      padding: 10px 12px;
+      border-radius: 14px;
+      background: rgba(241,139,42,0.1);
+      border: 1px solid rgba(241,139,42,0.2);
+      color: #7a4b17;
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
     .status-banner {
       padding: 14px 16px;
       border-radius: 18px;
@@ -1284,6 +1344,7 @@
           <div class="small muted" style="letter-spacing:0.14em; text-transform:uppercase; margin-bottom:8px;">Pool Status</div>
           <div style="font-size:1.1rem; font-weight:700; margin-bottom:6px;">Entries are fixed</div>
           <div class="muted small">No setup controls, no edits, no randomization. This page is now the shared scoreboard.</div>
+          <a class="live-site-link" href="https://flawlessiq.github.io/Bracket/">Open Live Site</a>
         </div>
       </div>
     </section>
@@ -1331,28 +1392,19 @@
             <div id="leaderboardTable"></div>
           </div>
           <div class="panel rail-panel">
-            <h3 class="section-title">Field Notes</h3>
-            <div class="note-stack">
-              <div class="note-block">
-                <strong>Bracket Source</strong>
-                The Round of 32 field is hardcoded from the 2026 bracket sheet you provided so anyone opening the link sees the same field.
-              </div>
-              <div class="note-block">
-                <strong>Live Sync</strong>
-                ESPN sync still updates current scores for matching games without changing your hardcoded field.
-              </div>
-            </div>
+            <h3 class="section-title">Sync Diagnostics</h3>
+            <div id="syncDiagnosticsPanel" class="diagnostics-stack"></div>
           </div>
         </section>
 
         <section class="panel">
           <div class="status-banner">
-            <strong>Visual Focus:</strong> The pool is now organized as entrant cards first, then a clear region-by-region tournament path so it is easier to see who owns what and where each team sits in the bracket.
+            <strong>Accuracy Focus:</strong> The app now bootstraps the field from ESPN, persists season state locally, and surfaces sync diagnostics so scoreboard errors are easier to catch quickly.
           </div>
           <div class="section-head">
             <div>
               <h2 class="section-title">Tournament Path</h2>
-              <p class="muted small">Official Round of 32 field from your bracket sheet, then survivor progression through the title game.</p>
+              <p class="muted small">ESPN-bootstrapped Round of 32 field, then survivor progression through the title game with persisted season results.</p>
             </div>
           </div>
           <div id="tournamentPathFilterBar" class="path-filter-bar"></div>
@@ -1373,12 +1425,13 @@
   </div>
 
   <script>
+    const LIVE_SITE_URL = 'https://flawlessiq.github.io/Bracket/';
+    const CURRENT_SEASON = '2026';
     const LIVE_SCOREBOARD_URL = 'https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard?groups=100';
     const LIVE_SUMMARY_URL = 'https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/summary?event=';
-    const ODDS_API_URL = 'https://api.the-odds-api.com/v4/sports/basketball_ncaab/odds';
-    const ODDS_API_KEY = 'REPLACE_ME';
     const LIVE_REFRESH_MS = 30000;
-    const VERIFIED_SPREAD_STORAGE_KEY = 'bracket-verified-spreads-v1';
+    const FIELD_BOOTSTRAP_LOOKBACK_DAYS = 21;
+    const SEASON_STATE_STORAGE_KEY = `bracket-season-state-${CURRENT_SEASON}-v1`;
     const LIVE_BRACKET_REGION_ORDER = {
       left: ['East Region', 'South Region'],
       right: ['West Region', 'Midwest Region']
@@ -1467,7 +1520,6 @@
     ];
 
     const DEFAULT_PLAYER_COUNT = FIXED_PLAYERS.length;
-    const ROUND64_LOOKBACK_DAYS = 5;
     const ROUND32_SEED_PATHS = [
       [[1, 16], [8, 9]],
       [[5, 12], [4, 13]],
@@ -1475,9 +1527,9 @@
       [[7, 10], [2, 15]]
     ];
 
-    const LOCKED_ROUND32_SPREADS = {
+    const FALLBACK_ROUND32_SPREADS = {
       'Duke__TCU': -12.5,
-        'Kansas__St. John\'s': -3.5,
+      'Kansas__St. John\'s': -3.5,
       'Louisville__Michigan State': 5.5,
       'Arkansas__High Point': 12.5,
       'Gonzaga__Texas': 5.5,
@@ -1537,6 +1589,16 @@
       liveBracketLastUpdated: '',
       recentUpdatedGameIds: new Set(),
       recentUpdateClearTimer: null,
+      syncDiagnostics: {
+        fieldSource: 'fallback',
+        fieldBootstrapStatus: 'pending',
+        fieldBootstrapTime: '',
+        seasonStateLoaded: false,
+        seasonStateSavedAt: '',
+        lastScoreSyncTime: '',
+        lastSummarySyncTime: '',
+        unmatchedEvents: []
+      },
       rounds: {
         round32: [],
         sweet16: [],
@@ -1565,27 +1627,11 @@
       return `${minTeams}-${minTeams + 1} teams each`;
     }
 
-    function updatePlayerCount(nextCount) {
-      const parsedCount = Number(nextCount);
-      if (!Number.isInteger(parsedCount)) return;
-
-      const safeCount = Math.max(2, Math.min(32, parsedCount));
-      if (safeCount === state.playerCount) {
-        document.getElementById('playerCountInput').value = String(safeCount);
-        return;
-      }
-
-      state.playerCount = safeCount;
-      state.players = buildPlayers(safeCount, state.players);
-      document.getElementById('playerCountInput').value = String(safeCount);
-      randomizeTeams();
-    }
-
     function createInitialGames(matchups = initialMatchups) {
       return matchups.map((matchup, index) => {
         const regionIndex = Math.floor(index / 4);
         const gameNumber = (index % 4) + 1;
-        const initialSpreadEntry = getInitialVerifiedSpread(matchup.teamA?.name, matchup.teamB?.name);
+        const initialSpreadEntry = getInitialSpreadEntry(matchup.teamA?.name, matchup.teamB?.name);
         return makeGame(
           `r32_${regionIndex}_${gameNumber}`,
           'round32',
@@ -1593,20 +1639,24 @@
           matchup.teamA,
           matchup.teamB,
           initialSpreadEntry.spread ?? matchup.spread,
-          initialSpreadEntry.spreadLocked
+          initialSpreadEntry.spreadLocked,
+          matchup.eventId || '',
+          initialSpreadEntry.source
         );
       });
     }
 
-    function makeGame(id, round, region, teamA, teamB, spread = null, spreadLocked = false) {
+    function makeGame(id, round, region, teamA, teamB, spread = null, spreadLocked = false, eventId = '', spreadSource = null) {
       return {
         id,
         round,
         region,
         teamA: teamA ? { ...teamA } : null,
         teamB: teamB ? { ...teamB } : null,
+        eventId,
         spread,
         spreadLocked,
+        spreadSource,
         scoreA: '',
         scoreB: '',
         gameStatus: 'scheduled',
@@ -1651,14 +1701,49 @@
       state.activePlayerId = null;
       state.liveBracketGames = [];
       state.liveBracketLastUpdated = '';
+      state.syncDiagnostics.fieldSource = 'fallback';
+      state.syncDiagnostics.fieldBootstrapStatus = 'pending';
+      state.syncDiagnostics.fieldBootstrapTime = '';
+      state.syncDiagnostics.seasonStateLoaded = false;
+      state.syncDiagnostics.seasonStateSavedAt = '';
+      state.syncDiagnostics.lastScoreSyncTime = '';
+      state.syncDiagnostics.lastSummarySyncTime = '';
+      state.syncDiagnostics.unmatchedEvents = [];
       state.rounds.round32 = createInitialGames(initialMatchups);
       buildLaterRounds();
       clearRecentUpdates();
     }
 
-    function loadVerifiedSpreadStore() {
+    function formatSyncTimestamp(value) {
+      if (!value) return '';
+      const date = new Date(value);
+      return Number.isNaN(date.getTime())
+        ? ''
+        : date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    }
+
+    function serializeTeam(team) {
+      return team ? { seed: team.seed ?? '', name: team.name ?? '' } : null;
+    }
+
+    function serializeGame(game) {
+      return {
+        id: game.id,
+        eventId: game.eventId || '',
+        teamA: serializeTeam(game.teamA),
+        teamB: serializeTeam(game.teamB),
+        spread: isUsableSpread(game) ? Number(game.spread) : null,
+        spreadLocked: Boolean(game.spreadLocked),
+        spreadSource: game.spreadSource || null,
+        scoreA: String(game.scoreA ?? ''),
+        scoreB: String(game.scoreB ?? ''),
+        gameStatus: game.gameStatus || 'scheduled'
+      };
+    }
+
+    function loadSeasonState() {
       try {
-        const raw = window.localStorage.getItem(VERIFIED_SPREAD_STORAGE_KEY);
+        const raw = window.localStorage.getItem(SEASON_STATE_STORAGE_KEY);
         if (!raw) return {};
         const parsed = JSON.parse(raw);
         return parsed && typeof parsed === 'object' ? parsed : {};
@@ -1667,48 +1752,78 @@
       }
     }
 
-    function saveVerifiedSpreadStore(store) {
+    function saveSeasonState() {
       try {
-        window.localStorage.setItem(VERIFIED_SPREAD_STORAGE_KEY, JSON.stringify(store));
+        const payload = {
+          season: CURRENT_SEASON,
+          savedAt: new Date().toISOString(),
+          fieldSource: state.syncDiagnostics.fieldSource,
+          final32Teams: state.final32Teams.map(team => ({ id: team.id, name: team.name })),
+          rounds: Object.fromEntries(Object.entries(state.rounds).map(([roundKey, games]) => [roundKey, games.map(serializeGame)]))
+        };
+        window.localStorage.setItem(SEASON_STATE_STORAGE_KEY, JSON.stringify(payload));
+        state.syncDiagnostics.seasonStateSavedAt = formatSyncTimestamp(payload.savedAt);
       } catch (error) {
-        console.log('Unable to persist verified spreads');
+        console.error('Unable to persist season state');
       }
     }
 
-    function getStoredSpreadEntry(teamA, teamB) {
-      const key = createMatchupKey(teamA, teamB);
-      const entry = loadVerifiedSpreadStore()[key];
-      if (!entry || !isSyncableSpreadValue(entry.spread)) return null;
+    function applyStoredGameFields(game, storedGame) {
+      if (!game || !storedGame) return;
 
-      return {
-        spread: Number(entry.spread),
-        spreadLocked: Boolean(entry.spreadLocked)
-      };
-    }
-
-    function saveSpreadEntry(teamA, teamB, spread, spreadLocked = false) {
-      if (!isSyncableSpreadValue(spread)) return;
-
-      const key = createMatchupKey(teamA, teamB);
-      const store = loadVerifiedSpreadStore();
-      store[key] = {
-        spread: Number(spread),
-        spreadLocked: Boolean(spreadLocked),
-        updatedAt: new Date().toISOString()
-      };
-      saveVerifiedSpreadStore(store);
-    }
-
-    function getInitialVerifiedSpread(teamA, teamB) {
-      const lockedSpread = getLockedRound32Spread(teamA, teamB);
-      if (lockedSpread !== null) {
-        return { spread: lockedSpread, spreadLocked: true };
+      if (storedGame.eventId) {
+        game.eventId = storedGame.eventId;
       }
 
-      const storedSpread = getStoredSpreadEntry(teamA, teamB);
-      if (storedSpread) return storedSpread;
+      if (isSyncableSpreadValue(storedGame.spread)) {
+        game.spread = Number(storedGame.spread);
+        game.spreadLocked = Boolean(storedGame.spreadLocked);
+        game.spreadSource = storedGame.spreadSource || 'verified';
+      }
 
-      return { spread: null, spreadLocked: false };
+      game.scoreA = String(storedGame.scoreA ?? '');
+      game.scoreB = String(storedGame.scoreB ?? '');
+      game.gameStatus = storedGame.gameStatus || ((game.scoreA !== '' || game.scoreB !== '') ? 'final' : 'scheduled');
+    }
+
+    function restoreRoundFromSeasonState(roundKey, storedGames) {
+      const storedById = new Map((storedGames || []).map(game => [game.id, game]));
+      state.rounds[roundKey].forEach(game => {
+        applyStoredGameFields(game, storedById.get(game.id));
+      });
+    }
+
+    function hydrateSeasonState() {
+      const storedState = loadSeasonState();
+      if (!storedState || storedState.season !== CURRENT_SEASON || !storedState.rounds) return false;
+
+      if (Array.isArray(storedState.final32Teams) && storedState.final32Teams.length === 32 && state.syncDiagnostics.fieldSource !== 'espn') {
+        state.final32Teams = storedState.final32Teams.map(team => ({ id: team.id, name: team.name }));
+      }
+
+      restoreRoundFromSeasonState('round32', storedState.rounds.round32);
+      propagateBracket();
+      restoreRoundFromSeasonState('sweet16', storedState.rounds.sweet16);
+      propagateBracket();
+      restoreRoundFromSeasonState('elite8', storedState.rounds.elite8);
+      propagateBracket();
+      restoreRoundFromSeasonState('final4', storedState.rounds.final4);
+      propagateBracket();
+      restoreRoundFromSeasonState('championship', storedState.rounds.championship);
+      propagateBracket();
+
+      state.syncDiagnostics.seasonStateLoaded = true;
+      state.syncDiagnostics.seasonStateSavedAt = formatSyncTimestamp(storedState.savedAt);
+      return true;
+    }
+
+    function getInitialSpreadEntry(teamA, teamB) {
+      const fallbackSpread = getFallbackRound32Spread(teamA, teamB);
+      if (fallbackSpread !== null) {
+        return { spread: fallbackSpread, spreadLocked: false, source: 'fallback' };
+      }
+
+      return { spread: null, spreadLocked: false, source: null };
     }
 
     function formatEspnDate(date) {
@@ -1771,7 +1886,7 @@
     }
 
     async function fetchRecentTournamentEvents() {
-      const dates = getRecentEspnDates(ROUND64_LOOKBACK_DAYS);
+      const dates = getRecentEspnDates(FIELD_BOOTSTRAP_LOOKBACK_DAYS);
       const eventSets = await Promise.all(dates.map(fetchEspnEventsForDate));
       return eventSets.flat();
     }
@@ -1836,8 +1951,8 @@
       return uniqueWinners;
     }
 
-    function buildRound32SpreadLookup(events) {
-      const spreadLookup = {};
+    function buildRound32EventLookup(events) {
+      const eventLookup = {};
 
       events.forEach(event => {
         const competition = event?.competitions?.[0];
@@ -1846,35 +1961,16 @@
         const competitors = getCompetitors(competition);
         if (competitors.length < 2) return;
 
-        const favoriteSpread = Number(competition?.odds?.[0]?.spread);
-        if (!isSyncableSpreadValue(favoriteSpread)) return;
-
         const teamA = competitors[0]?.team?.displayName || competitors[0]?.team?.shortDisplayName || competitors[0]?.team?.name;
         const teamB = competitors[1]?.team?.displayName || competitors[1]?.team?.shortDisplayName || competitors[1]?.team?.name;
         if (!teamA || !teamB) return;
 
-        spreadLookup[createMatchupKey(teamA, teamB)] = {
-          favoredTeam: competition?.odds?.[0]?.homeTeamOdds?.favorite
-            ? normalizeTeamName(competitors.find(competitor => competitor?.homeAway === 'home')?.team?.displayName || competitors[0]?.team?.displayName)
-            : competition?.odds?.[0]?.awayTeamOdds?.favorite
-              ? normalizeTeamName(competitors.find(competitor => competitor?.homeAway === 'away')?.team?.displayName || competitors[1]?.team?.displayName)
-              : normalizeTeamName(competitors[0]?.team?.displayName),
-          spread: favoriteSpread
+        eventLookup[createMatchupKey(teamA, teamB)] = {
+          eventId: event?.id || competition?.id || ''
         };
       });
 
-      return spreadLookup;
-    }
-
-    function getRound32Spread(teamAName, teamBName, spreadLookup) {
-      const lockedSpread = getLockedRound32Spread(teamAName, teamBName);
-      if (lockedSpread !== null) return lockedSpread;
-
-      const spreadEntry = spreadLookup[createMatchupKey(teamAName, teamBName)];
-      if (!spreadEntry) return null;
-      return normalizeTeamName(teamAName) === spreadEntry.favoredTeam
-        ? spreadEntry.spread
-        : spreadEntry.spread * -1;
+      return eventLookup;
     }
 
     function getSeedMatchWinner(regionSeedMap, seedOptions) {
@@ -1884,7 +1980,7 @@
     }
 
     function buildRound32Matchups(final32Teams, recentEvents) {
-      const spreadLookup = buildRound32SpreadLookup(recentEvents);
+      const eventLookup = buildRound32EventLookup(recentEvents);
 
       const matchups = regions.flatMap(region => {
         const regionTeams = final32Teams.filter(team => team.region === region);
@@ -1899,7 +1995,7 @@
             region,
             teamA: { id: teamA.id, seed: teamA.seed, name: teamA.name },
             teamB: { id: teamB.id, seed: teamB.seed, name: teamB.name },
-            spread: getRound32Spread(teamA.name, teamB.name, spreadLookup)
+            eventId: eventLookup[createMatchupKey(teamA.name, teamB.name)]?.eventId || ''
           };
         }).filter(Boolean);
       });
@@ -1935,6 +2031,10 @@
       buildLaterRounds();
       remapAssignedTeamsToFinal32();
       propagateBracket();
+      state.syncDiagnostics.fieldSource = 'espn';
+      state.syncDiagnostics.fieldBootstrapStatus = 'success';
+      state.syncDiagnostics.fieldBootstrapTime = formatSyncTimestamp(new Date().toISOString());
+      saveSeasonState();
 
       return true;
     }
@@ -2026,6 +2126,27 @@
       }) || null;
     }
 
+    function findGameByEventId(eventId) {
+      if (!eventId) return null;
+      return getAllGames().find(game => game.eventId && game.eventId === eventId) || null;
+    }
+
+    function findGameForUpdate(eventId, teamA, teamB) {
+      return findGameByEventId(eventId) || findGameByTeams(teamA, teamB);
+    }
+
+    function recordUnmatchedEvent(update, reason) {
+      const summary = `${normalizeTeamName(update?.awayTeamName)} vs ${normalizeTeamName(update?.homeTeamName)}`.trim();
+      const nextItem = {
+        eventId: update?.eventId || '',
+        summary,
+        reason,
+        seenAt: formatSyncTimestamp(new Date().toISOString())
+      };
+      const existing = state.syncDiagnostics.unmatchedEvents.filter(item => item.eventId && item.eventId !== nextItem.eventId);
+      state.syncDiagnostics.unmatchedEvents = [nextItem, ...existing].slice(0, 8);
+    }
+
     function markGamesUpdated(gameIds) {
       if (!gameIds.length) return;
 
@@ -2047,20 +2168,22 @@
       }
     }
 
-    function updateGameFromEspn(teamA, teamB, scoreA, scoreB, gameStatus) {
-      const normalizedA = normalizeTeamName(teamA);
-      const normalizedB = normalizeTeamName(teamB);
-      const game = findGameByTeams(normalizedA, normalizedB);
+    function updateGameFromEspn(update) {
+      const normalizedA = normalizeTeamName(update.awayTeamName);
+      const normalizedB = normalizeTeamName(update.homeTeamName);
+      const game = findGameForUpdate(update.eventId, normalizedA, normalizedB);
       if (!game) {
-        console.log('No match for:', normalizedA, normalizedB);
+        recordUnmatchedEvent(update, 'score update could not be matched to a pool game');
         return null;
       }
 
-      console.log('Matched game:', normalizedA, normalizedB);
+      if (update.eventId && game.eventId !== update.eventId) {
+        game.eventId = update.eventId;
+      }
 
       const normalizedGameA = normalizeTeamName(game.teamA?.name);
-      const nextScoreA = String(scoreA ?? '');
-      const nextScoreB = String(scoreB ?? '');
+      const nextScoreA = String(update.awayScore ?? '');
+      const nextScoreB = String(update.homeScore ?? '');
 
       if (normalizedA === normalizedGameA) {
         game.scoreA = nextScoreA;
@@ -2069,35 +2192,55 @@
         game.scoreA = nextScoreB;
         game.scoreB = nextScoreA;
       }
-      game.gameStatus = gameStatus || game.gameStatus || 'scheduled';
+      game.gameStatus = update.gameStatus || game.gameStatus || 'scheduled';
 
       propagateBracket();
+      saveSeasonState();
       return game.id;
     }
 
-    function updateSpread(teamA, teamB, spread) {
-      return updateSpreadWithOptions(teamA, teamB, spread);
+    function updateSpread(teamA, teamB, spread, options = {}) {
+      return updateSpreadWithOptions(teamA, teamB, spread, {
+        source: 'scoreboard',
+        ...options
+      });
     }
 
     function updateSpreadWithOptions(teamA, teamB, spread, options = {}) {
       if (!isSyncableSpreadValue(spread)) return false;
 
-      const { forceVerified = false, lockVerified = false } = options;
+      const {
+        forceVerified = false,
+        lockVerified = false,
+        source = 'verified',
+        eventId = ''
+      } = options;
 
-      const game = findGameByTeams(teamA, teamB);
+      const game = findGameForUpdate(eventId, teamA, teamB);
       if (!game) return false;
+
+      if (eventId && game.eventId !== eventId) {
+        game.eventId = eventId;
+      }
 
       const normalizedA = normalizeTeamName(teamA);
       const normalizedGameA = normalizeTeamName(game.teamA?.name);
       const nextSpread = normalizedA === normalizedGameA ? Number(spread) : Number(spread) * -1;
+      const verifiedOverride = source === 'verified' && game.spreadSource === 'fallback';
 
-      if (game.spreadLocked && game.spread !== nextSpread) return false;
+      if (game.spreadLocked && game.spread !== nextSpread && !verifiedOverride) return false;
       if (!forceVerified && game.gameStatus !== 'scheduled') return false;
 
       let changed = false;
 
-      if (game.spread !== nextSpread) {
+      if (game.spread !== nextSpread || verifiedOverride) {
         game.spread = nextSpread;
+        game.spreadSource = source;
+        changed = true;
+      }
+
+      if (!game.spreadSource && source) {
+        game.spreadSource = source;
         changed = true;
       }
 
@@ -2108,8 +2251,8 @@
 
       if (!changed) return false;
 
-      saveSpreadEntry(game.teamA?.name, game.teamB?.name, game.spread, game.spreadLocked);
       propagateBracket();
+      saveSeasonState();
       return game.id;
     }
 
@@ -2120,15 +2263,23 @@
         .join('__');
     }
 
-    function getLockedRound32Spread(teamA, teamB) {
+    function getFallbackRound32Spread(teamA, teamB) {
       const key = createMatchupKey(teamA, teamB);
-      return Object.prototype.hasOwnProperty.call(LOCKED_ROUND32_SPREADS, key)
-        ? LOCKED_ROUND32_SPREADS[key]
+      return Object.prototype.hasOwnProperty.call(FALLBACK_ROUND32_SPREADS, key)
+        ? FALLBACK_ROUND32_SPREADS[key]
         : null;
     }
 
-    function hasVerifiedSpread(game) {
+    function isUsableSpread(game) {
       return game && game.spread !== null && game.spread !== undefined && !Number.isNaN(Number(game.spread));
+    }
+
+    function hasVerifiedSpread(game) {
+      return isUsableSpread(game) && game.spreadSource === 'verified';
+    }
+
+    function isFallbackSpread(game) {
+      return isUsableSpread(game) && game.spreadSource === 'fallback';
     }
 
     function isSyncableSpreadValue(spread) {
@@ -2145,8 +2296,8 @@
 
     function formatSpreadText(game) {
       if (!game.teamA || !game.teamB) return 'Pending matchup';
-      if (!hasVerifiedSpread(game)) return 'Pending verified pregame line';
-      return `${game.teamA.name} ${game.spread > 0 ? '+' : ''}${game.spread}`;
+      if (!isUsableSpread(game)) return 'Pending pregame line';
+      return `${game.teamA.name} ${game.spread > 0 ? '+' : ''}${game.spread}${isFallbackSpread(game) ? ' (fallback)' : ''}`;
     }
 
     function isGameFinal(game) {
@@ -2271,44 +2422,6 @@
           matchedPoolGameId: findGameByTeams(competitorA?.team?.displayName, competitorB?.team?.displayName)?.id || null
         };
       }).filter(Boolean);
-    }
-
-    function buildLiveSpreadMap(events) {
-      const spreadMap = {};
-
-      events.forEach(event => {
-        const bookmakers = Array.isArray(event?.bookmakers) ? event.bookmakers : [];
-        const spreadMarket = bookmakers
-          .flatMap(bookmaker => bookmaker?.markets || [])
-          .find(market => market?.key === 'spreads' && Array.isArray(market?.outcomes) && market.outcomes.length >= 2);
-
-        if (!spreadMarket) return;
-
-        const awayTeam = event?.away_team;
-        const homeTeam = event?.home_team;
-        const awayOutcome = spreadMarket.outcomes.find(outcome => normalizeTeamName(outcome?.name) === normalizeTeamName(awayTeam));
-        if (!awayTeam || !homeTeam || awayOutcome?.point === undefined) return;
-
-        spreadMap[createMatchupKey(awayTeam, homeTeam)] = {
-          teamA: normalizeTeamName(awayTeam),
-          point: Number(awayOutcome.point)
-        };
-      });
-
-      return spreadMap;
-    }
-
-    function mergeLiveBracketData(games, spreadMap) {
-      return games.map(game => {
-        const spreadInfo = spreadMap[game.matchupKey];
-        if (!spreadInfo) return game;
-
-        const spread = spreadInfo.teamA === game.teamA ? spreadInfo.point : spreadInfo.point * -1;
-        return {
-          ...game,
-          spread
-        };
-      });
     }
 
     function sortLiveGamesForBracket(games) {
@@ -2518,20 +2631,18 @@
 
       games.forEach(game => {
         if (game.gameStatus !== 'scheduled') {
-          const updatedId = updateGameFromEspn(
-            game.awayTeamName,
-            game.homeTeamName,
-            game.awayScore,
-            game.homeScore,
-            game.gameStatus
-          );
+          const updatedId = updateGameFromEspn(game);
           if (updatedId) updatedGameIds.push(updatedId);
         }
 
         const spreadUpdatedId = updateSpread(
           game.awayTeamName,
           game.homeTeamName,
-          game.awaySpread
+          game.awaySpread,
+          {
+            eventId: game.eventId,
+            source: 'scoreboard'
+          }
         );
         if (spreadUpdatedId) updatedGameIds.push(spreadUpdatedId);
       });
@@ -2552,8 +2663,10 @@
           game.homeTeamName,
           game.awaySpread,
           {
+            eventId: game.eventId,
             forceVerified: true,
-            lockVerified: Boolean(game.spreadLocked)
+            lockVerified: Boolean(game.spreadLocked),
+            source: 'verified'
           }
         );
         if (spreadUpdatedId) updatedGameIds.push(spreadUpdatedId);
@@ -2624,6 +2737,7 @@
     async function syncRecentEspnScores() {
       if (state.liveSyncInFlight) return;
       state.liveSyncInFlight = true;
+      state.syncDiagnostics.unmatchedEvents = [];
 
       try {
         const events = await fetchRecentTournamentEvents();
@@ -2631,6 +2745,8 @@
         const verifiedSpreadGames = await fetchEspnSummarySpreadUpdates(events);
         applyEspnGameUpdates(games, false);
         applyVerifiedSpreadUpdates(verifiedSpreadGames, false);
+        state.syncDiagnostics.lastScoreSyncTime = formatSyncTimestamp(new Date().toISOString());
+        state.syncDiagnostics.lastSummarySyncTime = state.syncDiagnostics.lastScoreSyncTime;
       } finally {
         state.liveSyncInFlight = false;
         renderAll();
@@ -2640,6 +2756,7 @@
     async function syncEspnScores() {
       if (state.liveSyncInFlight) return;
       state.liveSyncInFlight = true;
+      state.syncDiagnostics.unmatchedEvents = [];
 
       try {
         const { events, games } = await fetchEspnScores();
@@ -2656,6 +2773,8 @@
         state.liveBracketLastUpdated = games.length
           ? new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
           : state.liveBracketLastUpdated;
+        state.syncDiagnostics.lastScoreSyncTime = state.liveBracketLastUpdated;
+        state.syncDiagnostics.lastSummarySyncTime = state.liveBracketLastUpdated;
       } finally {
         state.liveSyncInFlight = false;
         renderAll();
@@ -2676,33 +2795,6 @@
       liveInterval = null;
       state.liveMode = false;
       renderAll();
-    }
-
-    function shuffle(array) {
-      const copy = [...array];
-      for (let i = copy.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [copy[i], copy[j]] = [copy[j], copy[i]];
-      }
-      return copy;
-    }
-
-    function randomizeTeams() {
-      const allTeams = state.rounds.round32.flatMap(g => [g.teamA?.name, g.teamB?.name]).filter(Boolean);
-      const shuffled = shuffle(allTeams);
-      state.players.forEach(player => {
-        player.teamNames = [];
-      });
-      shuffled.forEach((teamName, index) => {
-        state.players[index % state.players.length].teamNames.push(teamName);
-      });
-      renderAll();
-    }
-
-    function setPlayerName(id, value) {
-      const player = state.players.find(p => p.id === id);
-      if (player) player.name = value || `Player ${id}`;
-      renderNameDependentViews();
     }
 
     function getPlayerById(id) {
@@ -2784,7 +2876,7 @@
           };
         }
 
-        if (!hasVerifiedSpread(game)) {
+        if (!isUsableSpread(game)) {
           return {
             id: canonicalizeTeamName(submittedName),
             submittedName,
@@ -2961,7 +3053,7 @@
         return;
       }
 
-      if (!hasVerifiedSpread(game)) {
+      if (!isUsableSpread(game)) {
         game.coverTeam = null;
         return;
       }
@@ -2979,34 +3071,39 @@
       game.teamB = nextTeamB ? { ...nextTeamB } : null;
 
       if (!game.teamA || !game.teamB) {
+        game.eventId = '';
         game.scoreA = '';
         game.scoreB = '';
         game.spread = null;
         game.spreadLocked = false;
+        game.spreadSource = null;
         game.gameStatus = 'scheduled';
         game.winner = null;
         game.coverTeam = null;
         return;
       }
 
-      if (!matchupChanged && hasVerifiedSpread(game)) {
+      if (!matchupChanged && isUsableSpread(game)) {
         return;
       }
 
       if (matchupChanged) {
+        game.eventId = '';
         game.scoreA = '';
         game.scoreB = '';
         game.spread = null;
         game.spreadLocked = false;
+        game.spreadSource = null;
         game.gameStatus = 'scheduled';
         game.winner = null;
         game.coverTeam = null;
       }
 
-      const storedSpread = getStoredSpreadEntry(game.teamA?.name, game.teamB?.name);
-      if (storedSpread) {
-        game.spread = storedSpread.spread;
-        game.spreadLocked = storedSpread.spreadLocked;
+      if (game.round === 'round32') {
+        const initialSpreadEntry = getInitialSpreadEntry(game.teamA?.name, game.teamB?.name);
+        game.spread = initialSpreadEntry.spread;
+        game.spreadLocked = initialSpreadEntry.spreadLocked;
+        game.spreadSource = initialSpreadEntry.source;
       }
     }
 
@@ -3108,6 +3205,7 @@
       if (!game) return;
       game[field] = value;
       propagateBracket();
+      saveSeasonState();
       renderAll();
     }
 
@@ -3258,12 +3356,15 @@
       if (game.scoreA === '' || game.scoreB === '' || game.gameStatus === 'scheduled') return 'Waiting for live score sync.';
       if (game.gameStatus === 'in-progress') return 'Game is live. Pool result will lock when final.';
       if (game.winner === 'TIE') return 'Game ended tied.';
-      if (!hasVerifiedSpread(game)) return 'Final score recorded. Awaiting a verified pregame spread.';
+      if (!isUsableSpread(game)) return 'Final score recorded. Awaiting a pregame spread.';
       if (game.coverTeam === 'PUSH') return 'Spread result is a push. No cover winner recorded.';
       if (game.coverTeam && game.winner && !teamNamesMatch(game.coverTeam, game.winner)) {
         return `${escapeHtml(game.coverTeam)} covered and inherits ${escapeHtml(game.winner)}.`;
       }
-      return game.coverTeam ? `${escapeHtml(game.coverTeam)} covered and survives.` : 'Awaiting spread result.';
+      if (game.coverTeam) {
+        return `${escapeHtml(game.coverTeam)} covered and survives${isFallbackSpread(game) ? ' using the fallback line.' : '.'}`;
+      }
+      return 'Awaiting spread result.';
     }
 
     function renderRegions() {
@@ -3497,17 +3598,68 @@
       `;
     }
 
+    function renderSyncDiagnostics() {
+      const panel = document.getElementById('syncDiagnosticsPanel');
+      if (!panel) return;
+
+      const fallbackGames = getAllGames().filter(isFallbackSpread);
+      const unmatchedItems = state.syncDiagnostics.unmatchedEvents.length
+        ? `
+          <div class="note-block">
+            <strong>Unmatched Events</strong>
+            <div class="diagnostics-list">
+              ${state.syncDiagnostics.unmatchedEvents.map(item => `
+                <div class="diagnostics-item">
+                  <div style="font-weight:800; color:#173159;">${escapeHtml(item.summary || item.eventId || 'Unknown event')}</div>
+                  <div class="small muted">${escapeHtml(item.reason || 'Unmatched during sync')}</div>
+                  <div class="diagnostics-kv"><span>Event ID</span><span>${escapeHtml(item.eventId || 'n/a')}</span></div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        `
+        : '';
+
+      panel.innerHTML = `
+        <div class="note-block">
+          <strong>Live Site</strong>
+          <div class="small muted">Canonical public URL for sharing and cache-free refreshes.</div>
+          <a class="live-site-link" href="${LIVE_SITE_URL}">Open ${LIVE_SITE_URL}</a>
+        </div>
+        <div class="note-block">
+          <strong>Field Bootstrap</strong>
+          <div class="diagnostics-list">
+            <div class="diagnostics-item">
+              <div class="diagnostics-kv"><strong>Source</strong><span>${escapeHtml(state.syncDiagnostics.fieldSource)}</span></div>
+              <div class="diagnostics-kv"><span>Status</span><span>${escapeHtml(state.syncDiagnostics.fieldBootstrapStatus)}</span></div>
+              <div class="diagnostics-kv"><span>Last bootstrap</span><span>${escapeHtml(state.syncDiagnostics.fieldBootstrapTime || 'not yet')}</span></div>
+            </div>
+            <div class="diagnostics-item">
+              <div class="diagnostics-kv"><strong>Season state</strong><span>${state.syncDiagnostics.seasonStateLoaded ? 'restored' : 'fresh session'}</span></div>
+              <div class="diagnostics-kv"><span>Last save</span><span>${escapeHtml(state.syncDiagnostics.seasonStateSavedAt || 'not yet')}</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="note-block">
+          <strong>Live Sync</strong>
+          <div class="diagnostics-list">
+            <div class="diagnostics-item">
+              <div class="diagnostics-kv"><strong>Scores</strong><span>${escapeHtml(state.syncDiagnostics.lastScoreSyncTime || 'waiting')}</span></div>
+              <div class="diagnostics-kv"><span>Summaries</span><span>${escapeHtml(state.syncDiagnostics.lastSummarySyncTime || 'waiting')}</span></div>
+              <div class="diagnostics-kv"><span>Fallback spreads</span><span>${String(fallbackGames.length)}</span></div>
+            </div>
+          </div>
+          ${fallbackGames.length ? `<div class="diagnostics-alert">${fallbackGames.length} game${fallbackGames.length === 1 ? '' : 's'} still rely on fallback lines. Verified ESPN summaries will replace them automatically when available.</div>` : ''}
+        </div>
+        ${unmatchedItems}
+      `;
+    }
+
     function renderLiveStatus() {
       const indicator = document.getElementById('liveIndicator');
       const isLive = Boolean(liveInterval);
       indicator.textContent = `Live Scores: ${isLive ? 'ON' : 'OFF'}`;
       indicator.className = `live-indicator ${isLive ? 'on' : 'off'}`;
-      const enableButton = document.getElementById('enableLiveBtn');
-      const disableButton = document.getElementById('disableLiveBtn');
-      const manualSyncButton = document.getElementById('manualSyncBtn');
-      if (enableButton) enableButton.disabled = isLive;
-      if (disableButton) disableButton.disabled = !isLive;
-      if (manualSyncButton) manualSyncButton.disabled = state.liveSyncInFlight;
     }
 
     function renderAll() {
@@ -3515,56 +3667,24 @@
       renderNameDependentViews();
       renderOverviewStats();
       renderLiveStatus();
+      renderSyncDiagnostics();
     }
 
-    function loadSampleBracket() {
-      randomizeTeams();
-
-      const sampleScores = {
-        round32: [ [78,70], [65,72], [81,76], [69,74], [80,73], [67,71], [74,70], [79,82], [76,61], [72,70], [64,68], [73,77], [70,66], [66,71], [75,78], [82,69] ],
-        sweet16: [ [77,70], [73,69], [68,72], [75,74], [70,66], [64,69], [81,78], [74,71] ],
-        elite8: [ [72,68], [66,70], [71,73], [78,74] ],
-        final4: [ [75,71], [69,74] ],
-        championship: [ [76,72] ]
-      };
-
-      state.rounds.round32.forEach((g, i) => {
-        g.scoreA = sampleScores.round32[i][0];
-        g.scoreB = sampleScores.round32[i][1];
-      });
-      propagateBracket();
-
-      state.rounds.sweet16.forEach((g, i) => {
-        if (g.teamA && g.teamB) {
-          g.scoreA = sampleScores.sweet16[i][0];
-          g.scoreB = sampleScores.sweet16[i][1];
-        }
-      });
-      propagateBracket();
-
-      state.rounds.elite8.forEach((g, i) => {
-        if (g.teamA && g.teamB) {
-          g.scoreA = sampleScores.elite8[i][0];
-          g.scoreB = sampleScores.elite8[i][1];
-        }
-      });
-      propagateBracket();
-
-      state.rounds.final4.forEach((g, i) => {
-        if (g.teamA && g.teamB) {
-          g.scoreA = sampleScores.final4[i][0];
-          g.scoreB = sampleScores.final4[i][1];
-        }
-      });
-      propagateBracket();
-
-      const c = state.rounds.championship[0];
-      if (c.teamA && c.teamB) {
-        c.scoreA = sampleScores.championship[0][0];
-        c.scoreB = sampleScores.championship[0][1];
-      }
-      propagateBracket();
+    async function initializeApp() {
+      resetAll();
       renderAll();
+
+      const fieldBootstrapped = await syncTournamentField();
+      if (!fieldBootstrapped) {
+        state.syncDiagnostics.fieldSource = 'fallback';
+        state.syncDiagnostics.fieldBootstrapStatus = 'fallback';
+        state.syncDiagnostics.fieldBootstrapTime = formatSyncTimestamp(new Date().toISOString());
+      }
+
+      hydrateSeasonState();
+      saveSeasonState();
+      renderAll();
+      await startLiveMode();
     }
 
     function toggleActivePlayer(playerId) {
@@ -3585,8 +3705,7 @@
     window.setTournamentPathRoundFilter = setTournamentPathRoundFilter;
     window.toggleActivePlayer = toggleActivePlayer;
 
-    resetAll();
-    startLiveMode();
+    initializeApp();
   </script>
 </body>
 </html>

@@ -1053,21 +1053,6 @@
       color: #173159;
     }
 
-    .live-site-link {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 100%;
-      margin-top: 12px;
-      padding: 11px 14px;
-      border-radius: 14px;
-      text-decoration: none;
-      font-weight: 800;
-      letter-spacing: 0.02em;
-      color: #eff6ff;
-      background: linear-gradient(180deg, #1f67bf, #143d77);
-    }
-
     .diagnostics-stack {
       display: grid;
       gap: 12px;
@@ -1344,7 +1329,6 @@
           <div class="small muted" style="letter-spacing:0.14em; text-transform:uppercase; margin-bottom:8px;">Pool Status</div>
           <div style="font-size:1.1rem; font-weight:700; margin-bottom:6px;">Entries are fixed</div>
           <div class="muted small">No setup controls, no edits, no randomization. This page is now the shared scoreboard.</div>
-          <a class="live-site-link" href="https://flawlessiq.github.io/Bracket/">Open Live Site</a>
         </div>
       </div>
     </section>
@@ -3682,8 +3666,7 @@
       panel.innerHTML = `
         <div class="note-block">
           <strong>Live Site</strong>
-          <div class="small muted">Canonical public URL for sharing and cache-free refreshes.</div>
-          <a class="live-site-link" href="${LIVE_SITE_URL}">Open ${LIVE_SITE_URL}</a>
+          <div class="small muted">Canonical public URL is set for consistency, but there is no in-page link because users are already on the live site.</div>
         </div>
         <div class="note-block">
           <strong>Field Bootstrap</strong>

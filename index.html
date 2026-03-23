@@ -1374,9 +1374,11 @@
 
   <script>
     const LIVE_SCOREBOARD_URL = 'https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard?groups=100';
+    const LIVE_SUMMARY_URL = 'https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/summary?event=';
     const ODDS_API_URL = 'https://api.the-odds-api.com/v4/sports/basketball_ncaab/odds';
     const ODDS_API_KEY = 'REPLACE_ME';
     const LIVE_REFRESH_MS = 30000;
+    const VERIFIED_SPREAD_STORAGE_KEY = 'bracket-verified-spreads-v1';
     const LIVE_BRACKET_REGION_ORDER = {
       left: ['East Region', 'South Region'],
       right: ['West Region', 'Midwest Region']
@@ -1551,15 +1553,15 @@
       return matchups.map((matchup, index) => {
         const regionIndex = Math.floor(index / 4);
         const gameNumber = (index % 4) + 1;
-        const lockedSpread = getLockedRound32Spread(matchup.teamA?.name, matchup.teamB?.name);
+        const initialSpreadEntry = getInitialVerifiedSpread(matchup.teamA?.name, matchup.teamB?.name);
         return makeGame(
           `r32_${regionIndex}_${gameNumber}`,
           'round32',
           matchup.region,
           matchup.teamA,
           matchup.teamB,
-          lockedSpread ?? matchup.spread,
-          lockedSpread !== null
+          initialSpreadEntry.spread ?? matchup.spread,
+          initialSpreadEntry.spreadLocked
         );
       });
     }
@@ -1620,6 +1622,61 @@
       state.rounds.round32 = createInitialGames(initialMatchups);
       buildLaterRounds();
       clearRecentUpdates();
+    }
+
+    function loadVerifiedSpreadStore() {
+      try {
+        const raw = window.localStorage.getItem(VERIFIED_SPREAD_STORAGE_KEY);
+        if (!raw) return {};
+        const parsed = JSON.parse(raw);
+        return parsed && typeof parsed === 'object' ? parsed : {};
+      } catch (error) {
+        return {};
+      }
+    }
+
+    function saveVerifiedSpreadStore(store) {
+      try {
+        window.localStorage.setItem(VERIFIED_SPREAD_STORAGE_KEY, JSON.stringify(store));
+      } catch (error) {
+        console.log('Unable to persist verified spreads');
+      }
+    }
+
+    function getStoredSpreadEntry(teamA, teamB) {
+      const key = createMatchupKey(teamA, teamB);
+      const entry = loadVerifiedSpreadStore()[key];
+      if (!entry || !isSyncableSpreadValue(entry.spread)) return null;
+
+      return {
+        spread: Number(entry.spread),
+        spreadLocked: Boolean(entry.spreadLocked)
+      };
+    }
+
+    function saveSpreadEntry(teamA, teamB, spread, spreadLocked = false) {
+      if (!isSyncableSpreadValue(spread)) return;
+
+      const key = createMatchupKey(teamA, teamB);
+      const store = loadVerifiedSpreadStore();
+      store[key] = {
+        spread: Number(spread),
+        spreadLocked: Boolean(spreadLocked),
+        updatedAt: new Date().toISOString()
+      };
+      saveVerifiedSpreadStore(store);
+    }
+
+    function getInitialVerifiedSpread(teamA, teamB) {
+      const lockedSpread = getLockedRound32Spread(teamA, teamB);
+      if (lockedSpread !== null) {
+        return { spread: lockedSpread, spreadLocked: true };
+      }
+
+      const storedSpread = getStoredSpreadEntry(teamA, teamB);
+      if (storedSpread) return storedSpread;
+
+      return { spread: null, spreadLocked: false };
     }
 
     function formatEspnDate(date) {
@@ -1995,18 +2052,39 @@
     }
 
     function updateSpread(teamA, teamB, spread) {
+      return updateSpreadWithOptions(teamA, teamB, spread);
+    }
+
+    function updateSpreadWithOptions(teamA, teamB, spread, options = {}) {
       if (!isSyncableSpreadValue(spread)) return false;
+
+      const { forceVerified = false, lockVerified = false } = options;
 
       const game = findGameByTeams(teamA, teamB);
       if (!game) return false;
-      if (game.spreadLocked || game.gameStatus !== 'scheduled') return false;
 
       const normalizedA = normalizeTeamName(teamA);
       const normalizedGameA = normalizeTeamName(game.teamA?.name);
       const nextSpread = normalizedA === normalizedGameA ? Number(spread) : Number(spread) * -1;
 
-      if (game.spread === nextSpread) return false;
-      game.spread = nextSpread;
+      if (game.spreadLocked && game.spread !== nextSpread) return false;
+      if (!forceVerified && game.gameStatus !== 'scheduled') return false;
+
+      let changed = false;
+
+      if (game.spread !== nextSpread) {
+        game.spread = nextSpread;
+        changed = true;
+      }
+
+      if (lockVerified && !game.spreadLocked) {
+        game.spreadLocked = true;
+        changed = true;
+      }
+
+      if (!changed) return false;
+
+      saveSpreadEntry(game.teamA?.name, game.teamB?.name, game.spread, game.spreadLocked);
       propagateBracket();
       return game.id;
     }
@@ -2031,6 +2109,14 @@
 
     function isSyncableSpreadValue(spread) {
       return spread !== null && spread !== undefined && !Number.isNaN(Number(spread)) && Number(spread) !== 0;
+    }
+
+    function parseSpreadLineValue(value) {
+      const rawValue = String(value ?? '').trim();
+      if (!rawValue) return null;
+
+      const numericValue = Number(rawValue.replace(/[^0-9+-.]/g, ''));
+      return Number.isNaN(numericValue) ? null : numericValue;
     }
 
     function formatSpreadText(game) {
@@ -2356,12 +2442,50 @@
           : 'scheduled';
 
       return {
+        eventId: event?.id || competition?.id || '',
         homeTeamName: homeCompetitor?.team?.displayName || homeCompetitor?.team?.shortDisplayName || homeCompetitor?.team?.name || '',
         awayTeamName: awayCompetitor?.team?.displayName || awayCompetitor?.team?.shortDisplayName || awayCompetitor?.team?.name || '',
         homeScore: homeCompetitor?.score ?? '',
         awayScore: awayCompetitor?.score ?? '',
         awaySpread,
         gameStatus
+      };
+    }
+
+    function extractEspnSummarySpreadUpdate(summary) {
+      const competition = summary?.header?.competitions?.[0];
+      const competitors = Array.isArray(competition?.competitors) ? competition.competitors : [];
+      const pickCenter = Array.isArray(summary?.pickcenter) ? summary.pickcenter[0] : null;
+      if (competitors.length < 2 || !pickCenter) return null;
+
+      const homeCompetitor = competitors.find(competitor => competitor?.homeAway === 'home') || competitors[0];
+      const awayCompetitor = competitors.find(competitor => competitor?.homeAway === 'away') || competitors[1];
+      const awayCloseLine = parseSpreadLineValue(pickCenter?.pointSpread?.away?.close?.line);
+      const awayOpenLine = parseSpreadLineValue(pickCenter?.pointSpread?.away?.open?.line);
+      const homeCloseLine = parseSpreadLineValue(pickCenter?.pointSpread?.home?.close?.line);
+      const homeOpenLine = parseSpreadLineValue(pickCenter?.pointSpread?.home?.open?.line);
+
+      let awaySpread = null;
+      if (isSyncableSpreadValue(awayCloseLine)) awaySpread = awayCloseLine;
+      else if (isSyncableSpreadValue(awayOpenLine)) awaySpread = awayOpenLine;
+      else if (isSyncableSpreadValue(homeCloseLine)) awaySpread = homeCloseLine * -1;
+      else if (isSyncableSpreadValue(homeOpenLine)) awaySpread = homeOpenLine * -1;
+      else return null;
+
+      const statusState = competition?.status?.type?.state;
+      const gameStatus = competition?.status?.type?.completed
+        ? 'final'
+        : statusState === 'in'
+          ? 'in-progress'
+          : 'scheduled';
+
+      return {
+        eventId: summary?.header?.id || competition?.id || '',
+        homeTeamName: homeCompetitor?.team?.displayName || homeCompetitor?.team?.shortDisplayName || homeCompetitor?.team?.name || '',
+        awayTeamName: awayCompetitor?.team?.displayName || awayCompetitor?.team?.shortDisplayName || awayCompetitor?.team?.name || '',
+        awaySpread,
+        gameStatus,
+        spreadLocked: gameStatus !== 'scheduled'
       };
     }
 
@@ -2395,6 +2519,60 @@
       return updatedGameIds;
     }
 
+    function applyVerifiedSpreadUpdates(games, markUpdated = true) {
+      const updatedGameIds = [];
+
+      games.forEach(game => {
+        const spreadUpdatedId = updateSpreadWithOptions(
+          game.awayTeamName,
+          game.homeTeamName,
+          game.awaySpread,
+          {
+            forceVerified: true,
+            lockVerified: Boolean(game.spreadLocked)
+          }
+        );
+        if (spreadUpdatedId) updatedGameIds.push(spreadUpdatedId);
+      });
+
+      if (markUpdated && updatedGameIds.length) {
+        markGamesUpdated(updatedGameIds);
+      }
+
+      return updatedGameIds;
+    }
+
+    async function fetchEspnSummaryForEvent(eventId) {
+      try {
+        const response = await fetch(`${LIVE_SUMMARY_URL}${eventId}`);
+        if (!response.ok) {
+          throw new Error(`Summary request failed: ${response.status}`);
+        }
+
+        return await response.json();
+      } catch (error) {
+        console.log('ESPN summary fetch failed');
+        return null;
+      }
+    }
+
+    async function fetchEspnSummarySpreadUpdates(events) {
+      const eventIds = [...new Set(events
+        .map(extractEspnGameUpdate)
+        .filter(Boolean)
+        .filter(update => {
+          const game = findGameByTeams(update.awayTeamName, update.homeTeamName);
+          return game && (!game.spreadLocked || !hasVerifiedSpread(game));
+        })
+        .map(update => update.eventId)
+        .filter(Boolean))];
+
+      if (!eventIds.length) return [];
+
+      const summaries = await Promise.all(eventIds.map(fetchEspnSummaryForEvent));
+      return summaries.map(extractEspnSummarySpreadUpdate).filter(Boolean);
+    }
+
     async function fetchEspnScores() {
       try {
         const response = await fetch(LIVE_SCOREBOARD_URL);
@@ -2406,10 +2584,16 @@
         const events = Array.isArray(data?.events) ? data.events : [];
         state.liveBracketGames = buildLiveBracketGames(events);
 
-        return events.map(extractEspnGameUpdate).filter(Boolean);
+        return {
+          events,
+          games: events.map(extractEspnGameUpdate).filter(Boolean)
+        };
       } catch (error) {
         console.log('ESPN fetch failed');
-        return [];
+        return {
+          events: [],
+          games: []
+        };
       }
     }
 
@@ -2420,7 +2604,9 @@
       try {
         const events = await fetchRecentTournamentEvents();
         const games = events.map(extractEspnGameUpdate).filter(Boolean);
+        const verifiedSpreadGames = await fetchEspnSummarySpreadUpdates(events);
         applyEspnGameUpdates(games, false);
+        applyVerifiedSpreadUpdates(verifiedSpreadGames, false);
       } finally {
         state.liveSyncInFlight = false;
         renderAll();
@@ -2432,8 +2618,16 @@
       state.liveSyncInFlight = true;
 
       try {
-        const games = await fetchEspnScores();
-        const updatedGameIds = applyEspnGameUpdates(games);
+        const { events, games } = await fetchEspnScores();
+        const verifiedSpreadGames = await fetchEspnSummarySpreadUpdates(events);
+        const updatedGameIds = [
+          ...applyEspnGameUpdates(games),
+          ...applyVerifiedSpreadUpdates(verifiedSpreadGames, false)
+        ];
+
+        if (updatedGameIds.length) {
+          markGamesUpdated(updatedGameIds);
+        }
 
         state.liveBracketLastUpdated = games.length
           ? new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
@@ -2754,6 +2948,44 @@
       else game.coverTeam = 'PUSH';
     }
 
+    function setGameMatchup(game, nextTeamA, nextTeamB) {
+      const matchupChanged = !teamNamesMatch(game.teamA?.name, nextTeamA?.name) || !teamNamesMatch(game.teamB?.name, nextTeamB?.name);
+
+      game.teamA = nextTeamA ? { ...nextTeamA } : null;
+      game.teamB = nextTeamB ? { ...nextTeamB } : null;
+
+      if (!game.teamA || !game.teamB) {
+        game.scoreA = '';
+        game.scoreB = '';
+        game.spread = null;
+        game.spreadLocked = false;
+        game.gameStatus = 'scheduled';
+        game.winner = null;
+        game.coverTeam = null;
+        return;
+      }
+
+      if (!matchupChanged && hasVerifiedSpread(game)) {
+        return;
+      }
+
+      if (matchupChanged) {
+        game.scoreA = '';
+        game.scoreB = '';
+        game.spread = null;
+        game.spreadLocked = false;
+        game.gameStatus = 'scheduled';
+        game.winner = null;
+        game.coverTeam = null;
+      }
+
+      const storedSpread = getStoredSpreadEntry(game.teamA?.name, game.teamB?.name);
+      if (storedSpread) {
+        game.spread = storedSpread.spread;
+        game.spreadLocked = storedSpread.spreadLocked;
+      }
+    }
+
     function propagateBracket() {
       state.rounds.round32.forEach(computeResult);
       state.rounds.sweet16.forEach(computeResult);
@@ -2768,10 +3000,8 @@
         const g4 = state.rounds.round32[r * 4 + 3];
         const s1 = state.rounds.sweet16[r * 2 + 0];
         const s2 = state.rounds.sweet16[r * 2 + 1];
-        s1.teamA = g1.winner && g1.winner !== 'TIE' ? findTeamByName(g1.winner) : null;
-        s1.teamB = g2.winner && g2.winner !== 'TIE' ? findTeamByName(g2.winner) : null;
-        s2.teamA = g3.winner && g3.winner !== 'TIE' ? findTeamByName(g3.winner) : null;
-        s2.teamB = g4.winner && g4.winner !== 'TIE' ? findTeamByName(g4.winner) : null;
+        setGameMatchup(s1, g1.winner && g1.winner !== 'TIE' ? findTeamByName(g1.winner) : null, g2.winner && g2.winner !== 'TIE' ? findTeamByName(g2.winner) : null);
+        setGameMatchup(s2, g3.winner && g3.winner !== 'TIE' ? findTeamByName(g3.winner) : null, g4.winner && g4.winner !== 'TIE' ? findTeamByName(g4.winner) : null);
       }
 
       state.rounds.sweet16.forEach(game => {
@@ -2788,8 +3018,7 @@
         const s1 = state.rounds.sweet16[r * 2 + 0];
         const s2 = state.rounds.sweet16[r * 2 + 1];
         const e = state.rounds.elite8[r];
-        e.teamA = s1.winner && s1.winner !== 'TIE' ? findTeamByName(s1.winner) : null;
-        e.teamB = s2.winner && s2.winner !== 'TIE' ? findTeamByName(s2.winner) : null;
+        setGameMatchup(e, s1.winner && s1.winner !== 'TIE' ? findTeamByName(s1.winner) : null, s2.winner && s2.winner !== 'TIE' ? findTeamByName(s2.winner) : null);
       }
 
       state.rounds.elite8.forEach(game => {
@@ -2804,10 +3033,16 @@
 
       const f4a = state.rounds.final4[0];
       const f4b = state.rounds.final4[1];
-      f4a.teamA = state.rounds.elite8[0].winner && state.rounds.elite8[0].winner !== 'TIE' ? findTeamByName(state.rounds.elite8[0].winner) : null;
-      f4a.teamB = state.rounds.elite8[1].winner && state.rounds.elite8[1].winner !== 'TIE' ? findTeamByName(state.rounds.elite8[1].winner) : null;
-      f4b.teamA = state.rounds.elite8[2].winner && state.rounds.elite8[2].winner !== 'TIE' ? findTeamByName(state.rounds.elite8[2].winner) : null;
-      f4b.teamB = state.rounds.elite8[3].winner && state.rounds.elite8[3].winner !== 'TIE' ? findTeamByName(state.rounds.elite8[3].winner) : null;
+      setGameMatchup(
+        f4a,
+        state.rounds.elite8[0].winner && state.rounds.elite8[0].winner !== 'TIE' ? findTeamByName(state.rounds.elite8[0].winner) : null,
+        state.rounds.elite8[1].winner && state.rounds.elite8[1].winner !== 'TIE' ? findTeamByName(state.rounds.elite8[1].winner) : null
+      );
+      setGameMatchup(
+        f4b,
+        state.rounds.elite8[2].winner && state.rounds.elite8[2].winner !== 'TIE' ? findTeamByName(state.rounds.elite8[2].winner) : null,
+        state.rounds.elite8[3].winner && state.rounds.elite8[3].winner !== 'TIE' ? findTeamByName(state.rounds.elite8[3].winner) : null
+      );
 
       state.rounds.final4.forEach(game => {
         if (!game.teamA || !game.teamB) {
@@ -2820,8 +3055,11 @@
       state.rounds.final4.forEach(computeResult);
 
       const champ = state.rounds.championship[0];
-      champ.teamA = f4a.winner && f4a.winner !== 'TIE' ? findTeamByName(f4a.winner) : null;
-      champ.teamB = f4b.winner && f4b.winner !== 'TIE' ? findTeamByName(f4b.winner) : null;
+      setGameMatchup(
+        champ,
+        f4a.winner && f4a.winner !== 'TIE' ? findTeamByName(f4a.winner) : null,
+        f4b.winner && f4b.winner !== 'TIE' ? findTeamByName(f4b.winner) : null
+      );
       if (!champ.teamA || !champ.teamB) {
         champ.scoreA = '';
         champ.scoreB = '';

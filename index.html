@@ -1979,14 +1979,6 @@
       const exactKnown = knownTeams.find(team => canonicalizeTeamName(team) === normalizedRaw);
       if (exactKnown) return exactKnown;
 
-      const partialKnown = [...knownTeams]
-        .sort((left, right) => canonicalizeTeamName(right).length - canonicalizeTeamName(left).length)
-        .find(team => {
-          const normalizedKnown = canonicalizeTeamName(team);
-          return normalizedRaw.includes(normalizedKnown) || normalizedKnown.includes(normalizedRaw);
-        });
-      if (partialKnown) return partialKnown;
-
       return simplifiedName;
     }
 

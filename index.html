@@ -1431,6 +1431,8 @@
     const LIVE_SUMMARY_URL = 'https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/summary?event=';
     const LIVE_REFRESH_MS = 30000;
     const FIELD_BOOTSTRAP_LOOKBACK_DAYS = 21;
+    const SYNC_EVENT_LOOKBACK_DAYS = 7;
+    const SYNC_EVENT_LOOKAHEAD_DAYS = 7;
     const SEASON_STATE_STORAGE_KEY = `bracket-season-state-${CURRENT_SEASON}-v1`;
     const LIVE_BRACKET_REGION_ORDER = {
       left: ['East Region', 'South Region'],
@@ -1833,6 +1835,13 @@
       return `${year}${month}${day}`;
     }
 
+    function getRelativeEspnDate(offset) {
+      const date = new Date();
+      date.setHours(12, 0, 0, 0);
+      date.setDate(date.getDate() + offset);
+      return formatEspnDate(date);
+    }
+
     function getRecentEspnDates(count) {
       return Array.from({ length: count }, (_, index) => {
         const date = new Date();
@@ -1840,6 +1849,14 @@
         date.setDate(date.getDate() - index);
         return formatEspnDate(date);
       });
+    }
+
+    function getTournamentWindowDates(lookbackDays, lookaheadDays) {
+      const offsets = [];
+      for (let offset = -lookbackDays; offset <= lookaheadDays; offset += 1) {
+        offsets.push(offset);
+      }
+      return [...new Set(offsets.map(getRelativeEspnDate))];
     }
 
     function getCompetitionHeadline(event, competition) {
@@ -1889,6 +1906,22 @@
       const dates = getRecentEspnDates(FIELD_BOOTSTRAP_LOOKBACK_DAYS);
       const eventSets = await Promise.all(dates.map(fetchEspnEventsForDate));
       return eventSets.flat();
+    }
+
+    async function fetchTournamentWindowEvents(lookbackDays = SYNC_EVENT_LOOKBACK_DAYS, lookaheadDays = SYNC_EVENT_LOOKAHEAD_DAYS) {
+      const dates = getTournamentWindowDates(lookbackDays, lookaheadDays);
+      const eventSets = await Promise.all(dates.map(fetchEspnEventsForDate));
+      return eventSets.flat();
+    }
+
+    function mergeEspnEvents(...eventGroups) {
+      const merged = new Map();
+      eventGroups.flat().forEach(event => {
+        const eventId = event?.id || event?.competitions?.[0]?.id;
+        if (!eventId || merged.has(eventId)) return;
+        merged.set(eventId, event);
+      });
+      return [...merged.values()];
     }
 
     function getCompetitors(competition) {
@@ -2145,6 +2178,24 @@
       };
       const existing = state.syncDiagnostics.unmatchedEvents.filter(item => item.eventId && item.eventId !== nextItem.eventId);
       state.syncDiagnostics.unmatchedEvents = [nextItem, ...existing].slice(0, 8);
+    }
+
+    function linkEventIdsFromUpdates(games) {
+      let changed = false;
+
+      games.forEach(update => {
+        if (!update?.eventId) return;
+        const game = findGameForUpdate(update.eventId, update.awayTeamName, update.homeTeamName);
+        if (!game || game.eventId === update.eventId) return;
+        game.eventId = update.eventId;
+        changed = true;
+      });
+
+      if (changed) {
+        saveSeasonState();
+      }
+
+      return changed;
     }
 
     function markGamesUpdated(gameIds) {
@@ -2630,6 +2681,9 @@
       const updatedGameIds = [];
 
       games.forEach(game => {
+        const matchedGame = findGameForUpdate(game.eventId, game.awayTeamName, game.homeTeamName);
+        if (!matchedGame) return;
+
         if (game.gameStatus !== 'scheduled') {
           const updatedId = updateGameFromEspn(game);
           if (updatedId) updatedGameIds.push(updatedId);
@@ -2698,7 +2752,7 @@
         .map(extractEspnGameUpdate)
         .filter(Boolean)
         .filter(update => {
-          const game = findGameByTeams(update.awayTeamName, update.homeTeamName);
+          const game = findGameForUpdate(update.eventId, update.awayTeamName, update.homeTeamName);
           return game && (!game.spreadLocked || !hasVerifiedSpread(game));
         })
         .map(update => update.eventId)
@@ -2740,8 +2794,9 @@
       state.syncDiagnostics.unmatchedEvents = [];
 
       try {
-        const events = await fetchRecentTournamentEvents();
+        const events = await fetchTournamentWindowEvents();
         const games = events.map(extractEspnGameUpdate).filter(Boolean);
+        linkEventIdsFromUpdates(games);
         const verifiedSpreadGames = await fetchEspnSummarySpreadUpdates(events);
         applyEspnGameUpdates(games, false);
         applyVerifiedSpreadUpdates(verifiedSpreadGames, false);
@@ -2760,9 +2815,13 @@
 
       try {
         const { events, games } = await fetchEspnScores();
-        const verifiedSpreadGames = await fetchEspnSummarySpreadUpdates(events);
+        const windowEvents = await fetchTournamentWindowEvents();
+        const combinedEvents = mergeEspnEvents(events, windowEvents);
+        const combinedGames = combinedEvents.map(extractEspnGameUpdate).filter(Boolean);
+        linkEventIdsFromUpdates(combinedGames);
+        const verifiedSpreadGames = await fetchEspnSummarySpreadUpdates(combinedEvents);
         const updatedGameIds = [
-          ...applyEspnGameUpdates(games),
+          ...applyEspnGameUpdates(combinedGames),
           ...applyVerifiedSpreadUpdates(verifiedSpreadGames, false)
         ];
 

@@ -847,6 +847,39 @@
       return `${year}${month}${day}`;
     }
 
+    function snapshotCurrentBracketState() {
+      return JSON.parse(JSON.stringify({
+        final32Teams: state.final32Teams,
+        rounds: state.rounds
+      }));
+    }
+
+    function restoreBracketSnapshot(snapshot, options = {}) {
+      if (!snapshot?.rounds) return;
+
+      const { restoreFinal32Teams = true } = options;
+
+      if (restoreFinal32Teams && Array.isArray(snapshot.final32Teams) && snapshot.final32Teams.length === 32) {
+        state.final32Teams = snapshot.final32Teams.map(team => ({ id: team.id, name: team.name }));
+      }
+
+      ['round32', 'sweet16', 'elite8', 'final4', 'championship'].forEach(roundKey => {
+        const storedGames = Array.isArray(snapshot.rounds[roundKey]) ? snapshot.rounds[roundKey] : [];
+        const storedById = new Map(storedGames.map(game => [game.id, game]));
+
+        state.rounds[roundKey].forEach(game => {
+          const storedGame = storedById.get(game.id);
+          if (!storedGame) return;
+
+          game.spread = storedGame.spread ?? game.spread;
+          game.scoreA = String(storedGame.scoreA ?? '');
+          game.scoreB = String(storedGame.scoreB ?? '');
+        });
+
+        propagateBracket();
+      });
+    }
+
     function getRecentEspnDates(count) {
       return Array.from({ length: count }, (_, index) => {
         const date = new Date();
@@ -1049,6 +1082,7 @@
     }
 
     async function syncTournamentField() {
+      const preservedBracketState = snapshotCurrentBracketState();
       const recentEvents = await fetchRecentTournamentEvents();
       const final32Entries = extractFinal32TeamEntries(recentEvents);
       if (final32Entries.length !== 32) return false;
@@ -1061,6 +1095,7 @@
       buildLaterRounds();
       remapAssignedTeamsToFinal32();
       propagateBracket();
+      restoreBracketSnapshot(preservedBracketState, { restoreFinal32Teams: false });
 
       return true;
     }

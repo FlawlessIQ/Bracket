@@ -1803,6 +1803,37 @@
       return true;
     }
 
+    function snapshotCurrentSeasonState() {
+      return {
+        final32Teams: state.final32Teams.map(team => ({ id: team.id, name: team.name })),
+        rounds: Object.fromEntries(
+          Object.entries(state.rounds).map(([roundKey, games]) => [roundKey, games.map(serializeGame)])
+        )
+      };
+    }
+
+    function restoreSeasonSnapshot(snapshot, options = {}) {
+      if (!snapshot?.rounds) return false;
+
+      const { restoreFinal32Teams = true } = options;
+
+      if (restoreFinal32Teams && Array.isArray(snapshot.final32Teams) && snapshot.final32Teams.length === 32 && state.syncDiagnostics.fieldSource !== 'espn') {
+        state.final32Teams = snapshot.final32Teams.map(team => ({ id: team.id, name: team.name }));
+      }
+
+      restoreRoundFromSeasonState('round32', snapshot.rounds.round32);
+      propagateBracket();
+      restoreRoundFromSeasonState('sweet16', snapshot.rounds.sweet16);
+      propagateBracket();
+      restoreRoundFromSeasonState('elite8', snapshot.rounds.elite8);
+      propagateBracket();
+      restoreRoundFromSeasonState('final4', snapshot.rounds.final4);
+      propagateBracket();
+      restoreRoundFromSeasonState('championship', snapshot.rounds.championship);
+      propagateBracket();
+      return true;
+    }
+
     function getInitialSpreadEntry(teamA, teamB) {
       const fallbackSpread = getFallbackRound32Spread(teamA, teamB);
       if (fallbackSpread !== null) {
@@ -2036,6 +2067,7 @@
     }
 
     async function syncTournamentField() {
+      const preservedSeasonState = snapshotCurrentSeasonState();
       const recentEvents = await fetchRecentTournamentEvents();
       const final32Entries = extractFinal32TeamEntries(recentEvents);
       if (final32Entries.length !== 32) return false;
@@ -2048,6 +2080,7 @@
       buildLaterRounds();
       remapAssignedTeamsToFinal32();
       propagateBracket();
+      restoreSeasonSnapshot(preservedSeasonState, { restoreFinal32Teams: false });
       state.syncDiagnostics.fieldSource = 'espn';
       state.syncDiagnostics.fieldBootstrapStatus = 'success';
       state.syncDiagnostics.fieldBootstrapTime = formatSyncTimestamp(new Date().toISOString());
@@ -2746,6 +2779,47 @@
 
       const summaries = await Promise.all(eventIds.map(fetchEspnSummaryForEvent));
       return summaries.map(extractEspnSummarySpreadUpdate).filter(Boolean);
+    }
+
+    function buildOrderedTournamentRecovery(events) {
+      return events.map(event => {
+        const competition = event?.competitions?.[0];
+        const roundNumber = getTournamentRoundNumber(event, competition);
+        const update = extractEspnGameUpdate(event);
+        if (!competition || !update || roundNumber === null || roundNumber < 2 || roundNumber > 6) {
+          return null;
+        }
+
+        return {
+          event,
+          update,
+          roundNumber,
+          eventDate: event?.date || ''
+        };
+      }).filter(Boolean).sort((left, right) => {
+        if (left.roundNumber !== right.roundNumber) {
+          return left.roundNumber - right.roundNumber;
+        }
+
+        const timeDiff = new Date(left.eventDate || 0) - new Date(right.eventDate || 0);
+        if (timeDiff !== 0) return timeDiff;
+
+        return String(left.update.eventId || '').localeCompare(String(right.update.eventId || ''));
+      });
+    }
+
+    async function recoverTournamentProgressFromEspn() {
+      const recoveryEvents = await fetchTournamentWindowEvents(FIELD_BOOTSTRAP_LOOKBACK_DAYS, SYNC_EVENT_LOOKAHEAD_DAYS);
+      const orderedRecovery = buildOrderedTournamentRecovery(recoveryEvents);
+      if (!orderedRecovery.length) return false;
+
+      const orderedUpdates = orderedRecovery.map(entry => entry.update);
+      linkEventIdsFromUpdates(orderedUpdates);
+      applyEspnGameUpdates(orderedUpdates, false);
+
+      const verifiedSpreadGames = await fetchEspnSummarySpreadUpdates(orderedRecovery.map(entry => entry.event));
+      applyVerifiedSpreadUpdates(verifiedSpreadGames, false);
+      return true;
     }
 
     async function fetchEspnScores() {
@@ -3714,6 +3788,7 @@
 
     async function initializeApp() {
       resetAll();
+      hydrateSeasonState();
       renderAll();
 
       const fieldBootstrapped = await syncTournamentField();
@@ -3723,7 +3798,8 @@
         state.syncDiagnostics.fieldBootstrapTime = formatSyncTimestamp(new Date().toISOString());
       }
 
-      hydrateSeasonState();
+      await recoverTournamentProgressFromEspn();
+
       saveSeasonState();
       renderAll();
       await startLiveMode();

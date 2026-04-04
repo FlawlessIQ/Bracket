@@ -284,6 +284,172 @@
       font-size: 14px;
     }
 
+    .history-panel {
+      margin-top: 18px;
+    }
+
+    .history-toolbar {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+
+    .history-filter-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .history-filter-button {
+      background: rgba(76,125,255,0.12);
+      border: 1px solid rgba(76,125,255,0.28);
+      color: #dce6ff;
+      border-radius: 999px;
+      padding: 8px 12px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .history-filter-button.active {
+      background: var(--gold);
+      border-color: var(--gold);
+      color: #1f2435;
+    }
+
+    .history-summary {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .history-list {
+      display: grid;
+      gap: 12px;
+    }
+
+    .history-item {
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px;
+      background: rgba(12, 18, 38, 0.78);
+      overflow: hidden;
+    }
+
+    .history-item-head {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: center;
+      padding: 14px 16px;
+      cursor: pointer;
+    }
+
+    .history-item-title {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 4px;
+    }
+
+    .history-item-title strong {
+      font-size: 15px;
+    }
+
+    .history-badge {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 4px 8px;
+      font-size: 11px;
+      font-weight: 700;
+      background: rgba(76,125,255,0.18);
+      color: #d7e2ff;
+      border: 1px solid rgba(76,125,255,0.3);
+    }
+
+    .history-meta-line {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .history-expand {
+      background: transparent;
+      border: 1px solid rgba(255,255,255,0.12);
+      color: #dce6ff;
+      min-width: 96px;
+    }
+
+    .history-item-body {
+      border-top: 1px solid rgba(255,255,255,0.08);
+      padding: 14px 16px 16px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .history-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .history-card {
+      border-radius: 14px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      padding: 12px;
+    }
+
+    .history-card h4 {
+      margin-bottom: 8px;
+      font-size: 13px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #d7e2ff;
+    }
+
+    .history-kv {
+      display: grid;
+      grid-template-columns: 110px 1fr;
+      gap: 8px;
+      font-size: 13px;
+      padding: 4px 0;
+    }
+
+    .history-kv span:first-child {
+      color: var(--muted);
+    }
+
+    .history-owners,
+    .history-entrant-list {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .history-owner-chip,
+    .history-entrant-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 9px;
+      border-radius: 999px;
+      background: rgba(76,125,255,0.14);
+      border: 1px solid rgba(76,125,255,0.28);
+      font-size: 12px;
+      color: #e7edff;
+    }
+
+    .history-empty {
+      padding: 18px;
+      border-radius: 16px;
+      border: 1px dashed rgba(255,255,255,0.16);
+      color: var(--muted);
+      text-align: center;
+    }
+
     .live-bracket-panel {
       margin-top: 18px;
     }
@@ -1308,6 +1474,11 @@
       .region-stage-columns {
         grid-template-columns: 1fr;
       }
+
+      .history-grid,
+      .history-item-head {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 </head>
@@ -1404,10 +1575,25 @@
           <div class="finals-grid" id="finalsGrid"></div>
         </section>
 
+        <section class="panel history-panel">
+          <div class="section-head">
+            <div>
+              <h2 class="section-title">History</h2>
+              <p id="historySummary" class="muted small">Every stored game/result/ownership snapshot from the Round of 32 forward.</p>
+            </div>
+          </div>
+          <div class="history-toolbar">
+            <div id="historyFilterBar" class="history-filter-bar"></div>
+            <div id="historyStoreLabel" class="history-summary"></div>
+          </div>
+          <div id="historyList" class="history-list"></div>
+        </section>
+
       </main>
     </div>
   </div>
 
+  <script src="config.js"></script>
   <script>
     const LIVE_SITE_URL = 'https://flawlessiq.github.io/Bracket/';
     const CURRENT_SEASON = '2026';
@@ -1418,6 +1604,7 @@
     const SYNC_EVENT_LOOKBACK_DAYS = 7;
     const SYNC_EVENT_LOOKAHEAD_DAYS = 7;
     const SEASON_STATE_STORAGE_KEY = `bracket-season-state-${CURRENT_SEASON}-v1`;
+    const REMOTE_STORE_API_BASE = window.BRACKET_API_BASE || (window.location.hostname === 'localhost' ? 'http://localhost:8787/api' : '');
     const LIVE_BRACKET_REGION_ORDER = {
       left: ['East Region', 'South Region'],
       right: ['West Region', 'Midwest Region']
@@ -1575,12 +1762,22 @@
       liveBracketLastUpdated: '',
       recentUpdatedGameIds: new Set(),
       recentUpdateClearTimer: null,
+      historyEntries: [],
+      historyRoundFilter: 'all',
+      historyExpandedKey: '',
+      historySourceLabel: 'local reconstruction',
       syncDiagnostics: {
         fieldSource: 'fallback',
         fieldBootstrapStatus: 'pending',
         fieldBootstrapTime: '',
         seasonStateLoaded: false,
         seasonStateSavedAt: '',
+        remoteStoreConfigured: Boolean(REMOTE_STORE_API_BASE),
+        remoteStateLoaded: false,
+        remoteStoreStatus: REMOTE_STORE_API_BASE ? 'idle' : 'disabled',
+        remoteLastSyncTime: '',
+        remoteHistoryCount: 0,
+        remoteError: '',
         lastScoreSyncTime: '',
         lastSummarySyncTime: '',
         unmatchedEvents: []
@@ -1594,6 +1791,14 @@
       }
     };
     let liveInterval = null;
+    let remoteSyncTimer = null;
+    let remoteSyncPromise = null;
+    let historyRefreshTimer = null;
+    let historyRefreshPromise = null;
+    let historyBackfillCache = {
+      signature: '',
+      entries: []
+    };
 
     function buildPlayers() {
       return FIXED_PLAYERS.map((player, index) => ({
@@ -1692,12 +1897,22 @@
       state.syncDiagnostics.fieldBootstrapTime = '';
       state.syncDiagnostics.seasonStateLoaded = false;
       state.syncDiagnostics.seasonStateSavedAt = '';
+      state.syncDiagnostics.remoteStoreConfigured = Boolean(REMOTE_STORE_API_BASE);
+      state.syncDiagnostics.remoteStateLoaded = false;
+      state.syncDiagnostics.remoteStoreStatus = REMOTE_STORE_API_BASE ? 'idle' : 'disabled';
+      state.syncDiagnostics.remoteLastSyncTime = '';
+      state.syncDiagnostics.remoteHistoryCount = 0;
+      state.syncDiagnostics.remoteError = '';
       state.syncDiagnostics.lastScoreSyncTime = '';
       state.syncDiagnostics.lastSummarySyncTime = '';
       state.syncDiagnostics.unmatchedEvents = [];
       state.rounds.round32 = createInitialGames(initialMatchups);
       buildLaterRounds();
       clearRecentUpdates();
+      state.historyEntries = [];
+      state.historyRoundFilter = 'all';
+      state.historyExpandedKey = '';
+      state.historySourceLabel = hasRemoteStore() ? 'remote store' : 'local reconstruction';
     }
 
     function formatSyncTimestamp(value) {
@@ -1716,6 +1931,8 @@
       return {
         id: game.id,
         eventId: game.eventId || '',
+        round: game.round || '',
+        region: game.region || '',
         teamA: serializeTeam(game.teamA),
         teamB: serializeTeam(game.teamB),
         spread: isUsableSpread(game) ? Number(game.spread) : null,
@@ -1725,6 +1942,102 @@
         scoreB: String(game.scoreB ?? ''),
         gameStatus: game.gameStatus || 'scheduled'
       };
+    }
+
+    function serializePlayer(player) {
+      return {
+        id: player.id,
+        name: player.name,
+        teamNames: [...player.teamNames]
+      };
+    }
+
+    function buildSeasonStatePayload() {
+      return {
+        season: CURRENT_SEASON,
+        savedAt: new Date().toISOString(),
+        fieldSource: state.syncDiagnostics.fieldSource,
+        final32Teams: state.final32Teams.map(team => ({ id: team.id, name: team.name })),
+        players: state.players.map(serializePlayer),
+        rounds: Object.fromEntries(Object.entries(state.rounds).map(([roundKey, games]) => [roundKey, games.map(serializeGame)]))
+      };
+    }
+
+    function getStateTimestamp(payload) {
+      const timestamp = Date.parse(payload?.savedAt || '');
+      return Number.isNaN(timestamp) ? 0 : timestamp;
+    }
+
+    function cloneJson(value) {
+      return JSON.parse(JSON.stringify(value));
+    }
+
+    function hasRemoteStore() {
+      return Boolean(REMOTE_STORE_API_BASE);
+    }
+
+    async function fetchRemoteStoreJson(pathname, options = {}) {
+      const response = await fetch(`${REMOTE_STORE_API_BASE}${pathname}`, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...(options.headers || {})
+        },
+        ...options
+      });
+
+      if (!response.ok) {
+        throw new Error(`Remote store request failed: ${response.status}`);
+      }
+
+      return await response.json();
+    }
+
+    async function loadRemoteSeasonState() {
+      if (!hasRemoteStore()) return {};
+
+      try {
+        const payload = await fetchRemoteStoreJson(`/season/${CURRENT_SEASON}/state`);
+        state.syncDiagnostics.remoteError = '';
+        return payload?.currentState && typeof payload.currentState === 'object' ? payload.currentState : {};
+      } catch (error) {
+        state.syncDiagnostics.remoteStoreStatus = 'error';
+        state.syncDiagnostics.remoteError = error instanceof Error ? error.message : 'Remote store unavailable';
+        return {};
+      }
+    }
+
+    async function loadRemoteHistoryEntries() {
+      if (!hasRemoteStore()) return [];
+
+      try {
+        const payload = await fetchRemoteStoreJson(`/season/${CURRENT_SEASON}/history`);
+        state.syncDiagnostics.remoteError = '';
+        state.syncDiagnostics.remoteHistoryCount = Number(payload?.historyCount || 0);
+        return Array.isArray(payload?.history) ? payload.history : [];
+      } catch (error) {
+        state.syncDiagnostics.remoteStoreStatus = 'error';
+        state.syncDiagnostics.remoteError = error instanceof Error ? error.message : 'Remote history unavailable';
+        return [];
+      }
+    }
+
+    function choosePreferredSeasonState(localState, remoteState) {
+      const remoteTimestamp = getStateTimestamp(remoteState);
+      const localTimestamp = getStateTimestamp(localState);
+
+      if (remoteTimestamp > localTimestamp) {
+        return { source: 'remote', payload: remoteState };
+      }
+
+      if (localTimestamp > 0) {
+        return { source: 'local', payload: localState };
+      }
+
+      if (remoteTimestamp > 0) {
+        return { source: 'remote', payload: remoteState };
+      }
+
+      return { source: '', payload: {} };
     }
 
     function loadSeasonState() {
@@ -1740,15 +2053,11 @@
 
     function saveSeasonState() {
       try {
-        const payload = {
-          season: CURRENT_SEASON,
-          savedAt: new Date().toISOString(),
-          fieldSource: state.syncDiagnostics.fieldSource,
-          final32Teams: state.final32Teams.map(team => ({ id: team.id, name: team.name })),
-          rounds: Object.fromEntries(Object.entries(state.rounds).map(([roundKey, games]) => [roundKey, games.map(serializeGame)]))
-        };
+        const payload = buildSeasonStatePayload();
         window.localStorage.setItem(SEASON_STATE_STORAGE_KEY, JSON.stringify(payload));
         state.syncDiagnostics.seasonStateSavedAt = formatSyncTimestamp(payload.savedAt);
+        scheduleRemoteSeasonSync('season-save');
+        scheduleHistoryRefresh(false);
       } catch (error) {
         console.error('Unable to persist season state');
       }
@@ -1779,9 +2088,17 @@
       });
     }
 
-    function hydrateSeasonState() {
-      const storedState = loadSeasonState();
+    function restoreSeasonStatePayload(storedState, source = 'local') {
       if (!storedState || storedState.season !== CURRENT_SEASON || !storedState.rounds) return false;
+
+      if (Array.isArray(storedState.players) && storedState.players.length) {
+        state.players = storedState.players.map(player => ({
+          id: Number(player.id),
+          name: player.name,
+          teamNames: Array.isArray(player.teamNames) ? [...player.teamNames] : []
+        }));
+        state.playerCount = state.players.length;
+      }
 
       if (Array.isArray(storedState.final32Teams) && storedState.final32Teams.length === 32 && state.syncDiagnostics.fieldSource !== 'espn') {
         state.final32Teams = storedState.final32Teams.map(team => ({ id: team.id, name: team.name }));
@@ -1800,7 +2117,25 @@
 
       state.syncDiagnostics.seasonStateLoaded = true;
       state.syncDiagnostics.seasonStateSavedAt = formatSyncTimestamp(storedState.savedAt);
+      state.syncDiagnostics.remoteStateLoaded = source === 'remote';
       return true;
+    }
+
+    function hydrateSeasonState() {
+      return restoreSeasonStatePayload(loadSeasonState(), 'local');
+    }
+
+    async function hydrateBestAvailableSeasonState() {
+      const localState = loadSeasonState();
+      const remoteState = await loadRemoteSeasonState();
+      const preferred = choosePreferredSeasonState(localState, remoteState);
+      if (!preferred.source) return false;
+
+      if (preferred.source === 'remote') {
+        state.syncDiagnostics.remoteStoreStatus = 'loaded';
+      }
+
+      return restoreSeasonStatePayload(preferred.payload, preferred.source);
     }
 
     function snapshotCurrentSeasonState() {
@@ -1832,6 +2167,326 @@
       restoreRoundFromSeasonState('championship', snapshot.rounds.championship);
       propagateBracket();
       return true;
+    }
+
+    function snapshotRuntimeStateForHistory() {
+      return {
+        playerCount: state.playerCount,
+        players: cloneJson(state.players),
+        final32Teams: cloneJson(state.final32Teams),
+        rounds: cloneJson(state.rounds)
+      };
+    }
+
+    function restoreRuntimeStateFromHistorySnapshot(snapshot) {
+      if (!snapshot) return;
+
+      state.playerCount = snapshot.playerCount;
+      state.players = cloneJson(snapshot.players || []);
+      state.final32Teams = cloneJson(snapshot.final32Teams || []);
+      ['round32', 'sweet16', 'elite8', 'final4', 'championship'].forEach(roundKey => {
+        state.rounds[roundKey] = cloneJson(snapshot.rounds?.[roundKey] || []);
+      });
+    }
+
+    function createHistoryBaseSnapshot(snapshot) {
+      const base = cloneJson(snapshot);
+
+      ['round32', 'sweet16', 'elite8', 'final4', 'championship'].forEach(roundKey => {
+        base.rounds[roundKey].forEach(game => {
+          game.scoreA = '';
+          game.scoreB = '';
+          game.gameStatus = 'scheduled';
+          game.winner = null;
+          game.coverTeam = null;
+
+          if (roundKey !== 'round32') {
+            game.teamA = null;
+            game.teamB = null;
+            game.eventId = '';
+            game.spread = null;
+            game.spreadLocked = false;
+            game.spreadSource = null;
+          }
+        });
+      });
+
+      return base;
+    }
+
+    function getAllGamesFromRounds(rounds) {
+      return [
+        ...(rounds.round32 || []),
+        ...(rounds.sweet16 || []),
+        ...(rounds.elite8 || []),
+        ...(rounds.final4 || []),
+        ...(rounds.championship || [])
+      ];
+    }
+
+    function findGameForUpdateInRounds(rounds, eventId, teamA, teamB) {
+      const allGames = getAllGamesFromRounds(rounds);
+      if (eventId) {
+        const byEventId = allGames.find(game => game.eventId && game.eventId === eventId);
+        if (byEventId) return byEventId;
+      }
+
+      const normalizedA = normalizeTeamName(teamA);
+      const normalizedB = normalizeTeamName(teamB);
+      if (!normalizedA || !normalizedB) return null;
+
+      return allGames.find(game => {
+        const gameTeamA = normalizeTeamName(game.teamA?.name);
+        const gameTeamB = normalizeTeamName(game.teamB?.name);
+        return (gameTeamA === normalizedA && gameTeamB === normalizedB) || (gameTeamA === normalizedB && gameTeamB === normalizedA);
+      }) || null;
+    }
+
+    function applyHistoricalGameUpdate(game, update, referenceGame) {
+      if (!game || !update) return false;
+
+      if (update.eventId) {
+        game.eventId = update.eventId;
+      }
+
+      const normalizedA = normalizeTeamName(update.awayTeamName);
+      const normalizedGameA = normalizeTeamName(game.teamA?.name);
+      const nextScoreA = String(update.awayScore ?? '');
+      const nextScoreB = String(update.homeScore ?? '');
+
+      if (normalizedA === normalizedGameA) {
+        game.scoreA = nextScoreA;
+        game.scoreB = nextScoreB;
+      } else {
+        game.scoreA = nextScoreB;
+        game.scoreB = nextScoreA;
+      }
+
+      game.gameStatus = update.gameStatus || 'scheduled';
+
+      if (referenceGame && isUsableSpread(referenceGame)) {
+        game.spread = Number(referenceGame.spread);
+        game.spreadLocked = Boolean(referenceGame.spreadLocked);
+        game.spreadSource = referenceGame.spreadSource || game.spreadSource || null;
+      } else if (isSyncableSpreadValue(update.awaySpread)) {
+        const nextSpread = normalizedA === normalizedGameA ? Number(update.awaySpread) : Number(update.awaySpread) * -1;
+        game.spread = nextSpread;
+        game.spreadSource = 'scoreboard';
+      }
+
+      return true;
+    }
+
+    function buildRemoteHistorySignature() {
+      return JSON.stringify({
+        players: state.players.map(serializePlayer),
+        final32Teams: state.final32Teams,
+        rounds: Object.fromEntries(
+          Object.entries(state.rounds).map(([roundKey, games]) => [roundKey, games.map(serializeGame)])
+        )
+      });
+    }
+
+    function buildEntrantHistorySnapshot() {
+      return state.players.map(player => ({
+        id: player.id,
+        name: player.name,
+        aliveTeams: aliveCount(player),
+        slots: getPlayerAssignedTeams(player).map(slot => ({
+          submittedName: slot.submittedName,
+          currentTeamName: slot.currentTeamName,
+          isAlive: slot.isAlive,
+          inherited: slot.inherited,
+          inheritedTeamName: slot.inheritedTeamName || '',
+          pendingSpread: slot.pendingSpread,
+          eliminatedReason: slot.eliminatedReason || ''
+        }))
+      }));
+    }
+
+    function buildHistoryEntry(game, recordedAt, source) {
+      const roundMeta = getTournamentPathRoundMeta(game.round);
+      return {
+        key: [
+          CURRENT_SEASON,
+          game.round,
+          game.id,
+          game.eventId || '',
+          game.scoreA,
+          game.scoreB,
+          isUsableSpread(game) ? Number(game.spread) : 'none'
+        ].join('::'),
+        season: CURRENT_SEASON,
+        recordedAt,
+        source,
+        roundKey: game.round,
+        gameId: game.id,
+        eventId: game.eventId || '',
+        gameLabel: roundMeta.label,
+        summary: {
+          roundLabel: roundMeta.label,
+          region: game.region || '',
+          teamA: serializeTeam(game.teamA),
+          teamB: serializeTeam(game.teamB),
+          scoreA: String(game.scoreA ?? ''),
+          scoreB: String(game.scoreB ?? ''),
+          spread: isUsableSpread(game) ? Number(game.spread) : null,
+          spreadSource: game.spreadSource || null,
+          spreadLocked: Boolean(game.spreadLocked),
+          gameStatus: game.gameStatus || 'scheduled',
+          winner: game.winner || null,
+          coverTeam: game.coverTeam || null,
+          ownersA: getOwners(game.teamA?.name, game.round).map(owner => ({ id: owner.id, name: owner.name })),
+          ownersB: getOwners(game.teamB?.name, game.round).map(owner => ({ id: owner.id, name: owner.name })),
+          entrants: buildEntrantHistorySnapshot()
+        },
+        seasonState: buildSeasonStatePayload()
+      };
+    }
+
+    async function buildHistoryBackfillEntries() {
+      const signature = buildRemoteHistorySignature();
+      if (historyBackfillCache.signature === signature) {
+        return historyBackfillCache.entries;
+      }
+
+      const currentSnapshot = snapshotRuntimeStateForHistory();
+      const recoveryEvents = await fetchTournamentWindowEvents(FIELD_BOOTSTRAP_LOOKBACK_DAYS, SYNC_EVENT_LOOKAHEAD_DAYS);
+      const orderedRecovery = buildOrderedTournamentRecovery(recoveryEvents).filter(entry => entry.update.gameStatus === 'final');
+
+      if (!orderedRecovery.length) {
+        historyBackfillCache = { signature, entries: [] };
+        return [];
+      }
+
+      const baseSnapshot = createHistoryBaseSnapshot(currentSnapshot);
+      const entries = [];
+
+      try {
+        restoreRuntimeStateFromHistorySnapshot(baseSnapshot);
+        propagateBracket();
+
+        orderedRecovery.forEach(entry => {
+          const game = findGameForUpdate(entry.update.eventId, entry.update.awayTeamName, entry.update.homeTeamName);
+          const referenceGame = findGameForUpdateInRounds(currentSnapshot.rounds, entry.update.eventId, entry.update.awayTeamName, entry.update.homeTeamName);
+
+          if (!game) return;
+          applyHistoricalGameUpdate(game, entry.update, referenceGame);
+          propagateBracket();
+          entries.push(buildHistoryEntry(game, entry.eventDate || new Date().toISOString(), 'espn-backfill'));
+        });
+      } finally {
+        restoreRuntimeStateFromHistorySnapshot(currentSnapshot);
+        propagateBracket();
+      }
+
+      historyBackfillCache = { signature, entries };
+      return entries;
+    }
+
+    async function syncRemoteSeasonStore(reason = 'state-sync') {
+      if (!hasRemoteStore()) return false;
+      if (remoteSyncPromise) return remoteSyncPromise;
+
+      state.syncDiagnostics.remoteStoreStatus = 'syncing';
+      state.syncDiagnostics.remoteError = '';
+      renderSyncDiagnostics();
+
+      remoteSyncPromise = (async () => {
+        try {
+          const historyEntries = await buildHistoryBackfillEntries();
+          const payload = buildSeasonStatePayload();
+          const response = await fetchRemoteStoreJson(`/season/${CURRENT_SEASON}/sync`, {
+            method: 'POST',
+            body: JSON.stringify({
+              reason,
+              state: payload,
+              historyEntries
+            })
+          });
+
+          state.syncDiagnostics.remoteStoreStatus = 'synced';
+          state.syncDiagnostics.remoteLastSyncTime = formatSyncTimestamp(response.historyUpdatedAt || response.currentStateUpdatedAt || new Date().toISOString());
+          state.syncDiagnostics.remoteHistoryCount = Number(response.historyCount || 0);
+          state.syncDiagnostics.remoteError = '';
+          state.historyEntries = [...historyEntries].sort((left, right) => Date.parse(right.recordedAt || '') - Date.parse(left.recordedAt || ''));
+          state.historySourceLabel = 'remote store';
+          return true;
+        } catch (error) {
+          state.syncDiagnostics.remoteStoreStatus = 'error';
+          state.syncDiagnostics.remoteError = error instanceof Error ? error.message : 'Remote sync failed';
+          return false;
+        } finally {
+          remoteSyncPromise = null;
+          renderSyncDiagnostics();
+        }
+      })();
+
+      return remoteSyncPromise;
+    }
+
+    function scheduleRemoteSeasonSync(reason = 'state-sync') {
+      if (!hasRemoteStore()) return;
+      if (remoteSyncTimer) {
+        clearTimeout(remoteSyncTimer);
+      }
+
+      remoteSyncTimer = setTimeout(() => {
+        remoteSyncTimer = null;
+        syncRemoteSeasonStore(reason);
+      }, 600);
+    }
+
+    async function refreshHistoryEntries(options = {}) {
+      const { preferRemote = false } = options;
+      if (historyRefreshPromise) return historyRefreshPromise;
+
+      historyRefreshPromise = (async () => {
+        let nextEntries = [];
+        let sourceLabel = 'local reconstruction';
+
+        if (preferRemote && hasRemoteStore()) {
+          nextEntries = await loadRemoteHistoryEntries();
+          if (nextEntries.length) {
+            sourceLabel = 'remote store';
+          }
+        }
+
+        if (!nextEntries.length) {
+          nextEntries = await buildHistoryBackfillEntries();
+        }
+
+        state.historyEntries = [...nextEntries].sort((left, right) => Date.parse(right.recordedAt || '') - Date.parse(left.recordedAt || ''));
+        state.historySourceLabel = sourceLabel;
+
+        if (state.historyExpandedKey && !state.historyEntries.some(entry => entry.key === state.historyExpandedKey)) {
+          state.historyExpandedKey = state.historyEntries[0]?.key || '';
+        }
+
+        if (!state.historyExpandedKey && state.historyEntries.length) {
+          state.historyExpandedKey = state.historyEntries[0].key;
+        }
+
+        renderHistoryView();
+        return state.historyEntries;
+      })();
+
+      try {
+        return await historyRefreshPromise;
+      } finally {
+        historyRefreshPromise = null;
+      }
+    }
+
+    function scheduleHistoryRefresh(preferRemote = false) {
+      if (historyRefreshTimer) {
+        clearTimeout(historyRefreshTimer);
+      }
+
+      historyRefreshTimer = setTimeout(() => {
+        historyRefreshTimer = null;
+        refreshHistoryEntries({ preferRemote });
+      }, 250);
     }
 
     function getInitialSpreadEntry(teamA, teamB) {
@@ -3274,11 +3929,11 @@
       setGameMatchup(
         f4a,
         state.rounds.elite8[0].winner && state.rounds.elite8[0].winner !== 'TIE' ? findTeamByName(state.rounds.elite8[0].winner) : null,
-        state.rounds.elite8[1].winner && state.rounds.elite8[1].winner !== 'TIE' ? findTeamByName(state.rounds.elite8[1].winner) : null
+        state.rounds.elite8[2].winner && state.rounds.elite8[2].winner !== 'TIE' ? findTeamByName(state.rounds.elite8[2].winner) : null
       );
       setGameMatchup(
         f4b,
-        state.rounds.elite8[2].winner && state.rounds.elite8[2].winner !== 'TIE' ? findTeamByName(state.rounds.elite8[2].winner) : null,
+        state.rounds.elite8[1].winner && state.rounds.elite8[1].winner !== 'TIE' ? findTeamByName(state.rounds.elite8[1].winner) : null,
         state.rounds.elite8[3].winner && state.rounds.elite8[3].winner !== 'TIE' ? findTeamByName(state.rounds.elite8[3].winner) : null
       );
 
@@ -3743,6 +4398,21 @@
           <div class="small muted">Canonical public URL is set for consistency, but there is no in-page link because users are already on the live site.</div>
         </div>
         <div class="note-block">
+          <strong>Remote Store</strong>
+          <div class="diagnostics-list">
+            <div class="diagnostics-item">
+              <div class="diagnostics-kv"><strong>Configured</strong><span>${state.syncDiagnostics.remoteStoreConfigured ? 'yes' : 'no'}</span></div>
+              <div class="diagnostics-kv"><span>Status</span><span>${escapeHtml(state.syncDiagnostics.remoteStoreStatus || 'disabled')}</span></div>
+              <div class="diagnostics-kv"><span>Remote state</span><span>${state.syncDiagnostics.remoteStateLoaded ? 'restored' : 'not loaded'}</span></div>
+            </div>
+            <div class="diagnostics-item">
+              <div class="diagnostics-kv"><strong>Last sync</strong><span>${escapeHtml(state.syncDiagnostics.remoteLastSyncTime || 'not yet')}</span></div>
+              <div class="diagnostics-kv"><span>History entries</span><span>${String(state.syncDiagnostics.remoteHistoryCount || 0)}</span></div>
+              <div class="diagnostics-kv"><span>Error</span><span>${escapeHtml(state.syncDiagnostics.remoteError || 'none')}</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="note-block">
           <strong>Field Bootstrap</strong>
           <div class="diagnostics-list">
             <div class="diagnostics-item">
@@ -3771,6 +4441,144 @@
       `;
     }
 
+    function getHistoryRoundOptions() {
+      return [
+        { key: 'all', label: 'All Rounds' },
+        ...TOURNAMENT_PATH_ROUNDS.map(round => ({ key: round.key, label: round.label }))
+      ];
+    }
+
+    function setHistoryRoundFilter(roundKey) {
+      state.historyRoundFilter = roundKey;
+      renderHistoryView();
+    }
+
+    function toggleHistoryEntry(entryKey) {
+      state.historyExpandedKey = state.historyExpandedKey === entryKey ? '' : entryKey;
+      renderHistoryView();
+    }
+
+    function formatHistoryTimestamp(value) {
+      const date = new Date(value || '');
+      if (Number.isNaN(date.getTime())) return 'Unknown time';
+      return date.toLocaleString([], {
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit'
+      });
+    }
+
+    function formatHistorySpread(value) {
+      if (value === null || value === undefined || Number.isNaN(Number(value))) return 'Pending line';
+      return `${Number(value) > 0 ? '+' : ''}${Number(value)}`;
+    }
+
+    function renderHistoryOwners(owners) {
+      if (!owners?.length) {
+        return '<span class="small muted">No entrants owned this side</span>';
+      }
+
+      return owners.map(owner => `<span class="history-owner-chip">${escapeHtml(owner.name)}</span>`).join('');
+    }
+
+    function renderHistoryEntrants(entrants) {
+      if (!entrants?.length) {
+        return '<span class="small muted">No entrant snapshot stored</span>';
+      }
+
+      return entrants.map(entrant => `
+        <span class="history-entrant-chip">${escapeHtml(entrant.name)} <strong>${entrant.aliveTeams}</strong></span>
+      `).join('');
+    }
+
+    function renderHistoryEntry(entry) {
+      const summary = entry.summary || {};
+      const expanded = state.historyExpandedKey === entry.key;
+      const teamALabel = summary.teamA?.name || 'TBD';
+      const teamBLabel = summary.teamB?.name || 'TBD';
+      const encodedKey = encodeURIComponent(entry.key || '');
+      const resultText = summary.winner === 'TIE'
+        ? 'Game ended tied'
+        : summary.coverTeam === 'PUSH'
+          ? 'Spread push'
+          : summary.coverTeam && summary.winner && normalizeTeamName(summary.coverTeam) !== normalizeTeamName(summary.winner)
+            ? `${summary.coverTeam} covered and inherited ${summary.winner}`
+            : summary.coverTeam
+              ? `${summary.coverTeam} covered`
+              : summary.winner
+                ? `${summary.winner} won`
+                : 'Pending result';
+
+      return `
+        <article class="history-item">
+          <div class="history-item-head" onclick="toggleHistoryEntry(decodeURIComponent('${encodedKey}'))">
+            <div>
+              <div class="history-item-title">
+                <span class="history-badge">${escapeHtml(summary.roundLabel || entry.gameLabel || entry.roundKey || 'Round')}</span>
+                <strong>${escapeHtml(teamALabel)} vs ${escapeHtml(teamBLabel)}</strong>
+              </div>
+              <div class="history-meta-line">
+                ${escapeHtml(summary.region || 'Tournament')} • ${escapeHtml(formatHistoryTimestamp(entry.recordedAt))} • ${escapeHtml(resultText)}
+              </div>
+            </div>
+            <button class="history-expand" type="button">${expanded ? 'Hide' : 'View'} Snapshot</button>
+          </div>
+          ${expanded ? `
+            <div class="history-item-body">
+              <div class="history-grid">
+                <div class="history-card">
+                  <h4>Game Result</h4>
+                  <div class="history-kv"><span>Score</span><span>${escapeHtml(teamALabel)} ${escapeHtml(summary.scoreA ?? '-')} - ${escapeHtml(summary.scoreB ?? '-')} ${escapeHtml(teamBLabel)}</span></div>
+                  <div class="history-kv"><span>Spread</span><span>${escapeHtml(teamALabel)} ${escapeHtml(formatHistorySpread(summary.spread))}${summary.spreadSource ? ` (${escapeHtml(summary.spreadSource)})` : ''}</span></div>
+                  <div class="history-kv"><span>Winner</span><span>${escapeHtml(summary.winner || 'Pending')}</span></div>
+                  <div class="history-kv"><span>Cover Team</span><span>${escapeHtml(summary.coverTeam || 'Pending')}</span></div>
+                  <div class="history-kv"><span>Status</span><span>${escapeHtml(summary.gameStatus || 'scheduled')}</span></div>
+                </div>
+                <div class="history-card">
+                  <h4>Ownership Snapshot</h4>
+                  <div class="history-kv"><span>${escapeHtml(teamALabel)}</span><div class="history-owners">${renderHistoryOwners(summary.ownersA)}</div></div>
+                  <div class="history-kv"><span>${escapeHtml(teamBLabel)}</span><div class="history-owners">${renderHistoryOwners(summary.ownersB)}</div></div>
+                </div>
+              </div>
+              <div class="history-card">
+                <h4>Entrant Snapshot</h4>
+                <div class="history-entrant-list">${renderHistoryEntrants(summary.entrants)}</div>
+              </div>
+            </div>
+          ` : ''}
+        </article>
+      `;
+    }
+
+    function renderHistoryView() {
+      const filterBar = document.getElementById('historyFilterBar');
+      const summary = document.getElementById('historySummary');
+      const storeLabel = document.getElementById('historyStoreLabel');
+      const list = document.getElementById('historyList');
+      if (!filterBar || !summary || !storeLabel || !list) return;
+
+      const options = getHistoryRoundOptions();
+      const filteredEntries = state.historyEntries.filter(entry => state.historyRoundFilter === 'all' || entry.roundKey === state.historyRoundFilter);
+
+      filterBar.innerHTML = options.map(option => `
+        <button
+          type="button"
+          class="history-filter-button ${state.historyRoundFilter === option.key ? 'active' : ''}"
+          onclick="setHistoryRoundFilter('${option.key}')"
+        >
+          ${escapeHtml(option.label)}
+        </button>
+      `).join('');
+
+      summary.textContent = `${filteredEntries.length} stored snapshot${filteredEntries.length === 1 ? '' : 's'} available from the Round of 32 forward.`;
+      storeLabel.textContent = `Source: ${state.historySourceLabel}`;
+
+      list.innerHTML = filteredEntries.length
+        ? filteredEntries.map(renderHistoryEntry).join('')
+        : `<div class="history-empty">No history snapshots are available for this filter yet.</div>`;
+    }
+
     function renderLiveStatus() {
       const indicator = document.getElementById('liveIndicator');
       const isLive = Boolean(liveInterval);
@@ -3784,11 +4592,13 @@
       renderOverviewStats();
       renderLiveStatus();
       renderSyncDiagnostics();
+      renderHistoryView();
     }
 
     async function initializeApp() {
       resetAll();
-      hydrateSeasonState();
+      await hydrateBestAvailableSeasonState();
+      await refreshHistoryEntries({ preferRemote: true });
       renderAll();
 
       const fieldBootstrapped = await syncTournamentField();
@@ -3801,6 +4611,8 @@
       await recoverTournamentProgressFromEspn();
 
       saveSeasonState();
+      await syncRemoteSeasonStore('initialize');
+      await refreshHistoryEntries({ preferRemote: true });
       renderAll();
       await startLiveMode();
     }
@@ -3820,7 +4632,9 @@
     }
 
     window.setGameField = setGameField;
+    window.setHistoryRoundFilter = setHistoryRoundFilter;
     window.setTournamentPathRoundFilter = setTournamentPathRoundFilter;
+    window.toggleHistoryEntry = toggleHistoryEntry;
     window.toggleActivePlayer = toggleActivePlayer;
 
     initializeApp();
